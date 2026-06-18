@@ -1,5 +1,7 @@
 # 🎲 Nahida4479 Bot
 
+🇬🇧 [English version](README_EN.md)
+
 Bot Discord dla polskiej społeczności **Neverness to Everness**, napisany w JavaScript z użyciem **discord.js**. Oferuje system ekonomii oparty na **Solid Dice**, systemie rollowania oraz zarządzanie serwerem.
 
 ---
