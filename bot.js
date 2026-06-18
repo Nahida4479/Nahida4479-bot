@@ -2,52 +2,7 @@
 import { createClient } from "@libsql/client";
 import "dotenv/config";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js"
-
-async function inicjalizujBaze() {
-    try {
-        await db.execute(`CREATE TABLE IF NOT EXISTS ekonomia (
-            user_id TEXT, 
-            guild_id TEXT, 
-            solid_dice INTEGER DEFAULT 0, 
-            solid_dice_total INTEGER DEFAULT 0,
-            PRIMARY KEY (user_id, guild_id)
-        )`);
-
-        await db.execute(`CREATE TABLE IF NOT EXISTS ekwipunek (
-            user_id TEXT, 
-            guild_id TEXT, 
-            item_nazwa TEXT, 
-            ilosc INTEGER DEFAULT 0,
-            PRIMARY KEY (user_id, guild_id, item_nazwa)
-        )`);
-
-        await db.execute(`CREATE TABLE IF NOT EXISTS postacie (
-            user_id TEXT, 
-            guild_id TEXT, 
-            postac TEXT, 
-            ilosc INTEGER DEFAULT 0,
-            PRIMARY KEY (user_id, guild_id, postac)
-        )`);
-
-        await db.execute(`CREATE TABLE IF NOT EXISTS cooldowny (
-            user_id TEXT, 
-            guild_id TEXT, 
-            komenda TEXT, 
-            ostatnio INTEGER,
-            PRIMARY KEY (user_id, guild_id, komenda)
-        )`);
-
-        await db.execute(`CREATE TABLE IF NOT EXISTS serwery (
-            guild_id TEXT PRIMARY KEY, 
-            kanal_id TEXT
-        )`);
-
-        console.log("Baza danych turso działa poprawnie");
-    } catch (err) {
-        console.error("Błąd podczas tworzenia tabel:", err);
-    }
-
-}
+import { db, initDB } from "./database.js";
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
 const db = createClient({
@@ -64,8 +19,8 @@ const client = new Client({
 });
 
 client.once("ready", async () => {
-    await inicjalizujBaze();
-    console.log(`Zalogowano jako ${client.user.tag}`);
+    await initDB();
+    console.log(`Login in as ${client.user.tag}`);
 
     const rest = new REST ({ version: "10"}).setToken(process.env.token_bot);
     const commands = [
@@ -76,10 +31,6 @@ client.once("ready", async () => {
         new SlashCommandBuilder()
         .setName("work")
         .setDescription("Odbierz Solid Dice"),
-
-        new SlashCommandBuilder()
-        .setName("skillissues")
-        .setDescription("Wieszak zjawia się z az megafonem i daje ci 5 Solid Dice po tym jak zostałem ogłuszony"),
 
         new SlashCommandBuilder()
         .setName("pinkpawsheist")
@@ -189,8 +140,8 @@ async function addSolidDice(userId, guildId, ilosc) {
     });
 }
 
-const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hathor", "Fadia", "Daffodill", "Jiuyuan", "Hotorii", "Nanally", "Chiz"];
-const POSTACIE_RZADKIE = ["Mint", "Skia", "Edagar", "Aurelia", "Adler", "Haniel"];
+const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill", "Jiuyuan", "Hotori", "Nanally", "Chiz", "Lacrimosa", "Chaos"];
+const POSTACIE_RZADKIE = ["Mint", "Skia", "Edgar", "Aurelia", "Adler", "Haniel"];
 
 const items = {
     legendarny: [
@@ -436,84 +387,90 @@ async function policzItemy(userId, guildId, rzadkosc) {
 
 const rollAnimacja = [
 `\`\`\`
-  Przygotowanie do rzutu...
+◌
+◌ ◌
+◌ ◌ ◌
 
-     o
-    /|\\
-    / \\
-
-  [🎲 trzyma Solid Dice]
+[ SEARCHING ]
 \`\`\``,
 
 `\`\`\`
-  Zamach...
+◈
+◈ ◈
+◈ ◈ ◈
 
-    o
-   /|\\__🎲
-    / \\
-
-  >>> ZAMACH <
+[ ANALYZING ]
 \`\`\``,
 
 `\`\`\`
-  RZUT!
+⬡
+⬡ ⬡
+⬡ ⬡ ⬡
 
-    o    🎲
-   /|   ~~~>
-    / \\
-
-  >>> LECIIIII <
+⚡ SIGNAL DETECTED ⚡
 \`\`\``,
 
 `\`\`\`
-  Solid Dice w locie...
+▒░▒░▒░▒░▒░
+░▒░▒░▒░▒░▒
+▒░▒░▒░▒░▒░
 
-    o        🎲
-   /|        ~~~>
-    / \\
-
-  >>>>>>>>>>>>>>>
+[ DECRYPTING ]
 \`\`\``,
 
 `\`\`\`
-  Zderzenie!
+■■□□□□□□□□
 
-    o          💥
-   /|
-    / \\
-
-  *** BOOM ***
+[ DECRYPTING ]
 \`\`\``,
 
 `\`\`\`
-  Pobieranie...
+■■■■□□□□□□
 
-    o        🌀
-   /|       ~~~~
-    / \\
-
-  ~ ~ ~ ~ ~ ~ ~
+[ DECRYPTING ]
 \`\`\``,
 
 `\`\`\`
-  Losowanie...
+■■■■■■□□□□
 
-    o       ✨✨✨
-   /|      ✨   ✨
-    / \\     ✨✨✨
-
-  ??? ??? ??? ???
+[ DECRYPTING ]
 \`\`\``,
 
 `\`\`\`
-  Przedmioty się materializują!
+■■■■■■■■□□
 
-    o     📦💜💙⬜
-   /|\\    ||||||||
-    / \\
-
-  !! GOTOWE !!
+[ DECRYPTING ]
 \`\`\``,
+
+`\`\`\`
+■■■■■■■■■■
+
+[ DECRYPTING ]
+\`\`\``,
+
+`\`\`\`
+⚠ ANOMALY FOUND ⚠
+\`\`\``,
+
+`\`\`\`
+✦
+✦ ✦
+✦ ✦ ✦
+\`\`\``,
+
+`\`\`\`
+⚡
+⚡ ⚡
+⚡ ⚡ ⚡
+\`\`\``,
+
+`\`\`\`
+💥
+\`\`\``,
+
+`\`\`\`
+✨ ITEM ACQUIRED ✨
+\`\`\``
 ];
 
 async function pokazRollAnimacje(interaction) {
@@ -748,7 +705,7 @@ client.on("interactionCreate", async (interaction) => {
     const solidDice = portfel.rows.length > 0 ? Number(portfel.rows[0].solid_dice) : 0;
 
     if (solidDice < 10) {
-        await interaction.reply({ content: `❗ Nie masz wystarczająco Solid Dice! Masz **${solidDice}/10** <:Red_roll:1512521789748547715>`, ephemeral: true });
+        await interaction.reply({ content: `❗ Nie masz wystarczająco Solid Dice! Posiadasz **${solidDice}/10** <:Red_roll:1512521789748547715>`, ephemeral: true });
         return;
     }
 
@@ -810,9 +767,24 @@ if (interaction.commandName === "plecak") {
     });
 
     const zdjeciaPostaci = {
-        "Adler": "Adler.jpg",
-        "Jiuyuan": "Jiuyuan.jpg"
-    };
+    "Adler": "Adler.jpg",
+    "Aurelia": "Aurelia.jpg",
+    "Baicang": "Baicang.jpg",
+    "Chaos": "Chaos.jpg",
+    "Chiz": "Chiz.jpg",
+    "Daffodill": "Daffodill.jpg",
+    "Edgar": "Edgar.jpg",
+    "Fadia": "Fadia.jpg",
+    "Haniel": "Haniel.jpg",
+    "Hator": "Hator.jpg",
+    "Hotori": "Hotori.jpg",
+    "Jiuyuan": "Jiuyuan.jpg",
+    "Lacrimosa": "Lacrimosa.jpg",
+    "Mint": "Mint.jpg",
+    "Nanally": "Nanally.jpg",
+    "Sakiri": "Sakiri.jpg",
+    "Skia": "Skia.jpg"
+};
 
     let epickieSzt = 0, rzadkieSzt = 0, zwykleSzt = 0;
     const nazwyEpickie = items.epicki.map(i => i.nazwa);
