@@ -5,10 +5,6 @@ import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuil
 import { db, initDB } from "./database.js";
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
-const db = createClient({
-    url: process.env.url_db,
-    authToken: process.env.token_db,
-});
 
 const client = new Client({
     intents: [
@@ -880,5 +876,56 @@ process.on('unhandledRejection', (reason, promise) => {
 process.on('uncaughtException', (error) => {
     console.error('Krytyczny błąd bota:', error);
 });
+
+
+if (interaction.commandName === "pinkpawsheist") {
+    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", 48 * 60 * 60 * 1000);
+    if (cooldown){
+        await interaction.reply({ content: cooldown, ephemeral: true});
+        return;
+    }
+    const wygrana = Math.random() < 0.5;
+    const ilosc = Math.floor(Math.random() * 30) + 1;
+    await addSolidDice(interaction.user.id, interaction.guild.id, ilosc);
+
+    const wiadomosci1 = [
+        "Tekst pozytywny 1"
+    ];
+
+    const wiadomosc = wiadomosci1[Math.floor(Math.random() * wiadomosci1.length)];
+    const embed = new EmbedBuilder()
+        .setColor (0x00FF00)
+        .setTitle("🐾 Pink Paws Heist - Sukces!")
+        .setDescription(wiadomosc)
+        .addFields({ name: "Otrzymałeś/aś ", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>`});
+
+    await interaction.reply({ embeds: [embed]});    
+} else {
+    const portfel = await db.execute({
+        sql: "SELECT solid_dice FROM ekonomia WHERE user_id = ? AND GUILD_ID = ?",
+        args: [interaction.user.id, interaction.guild.id],
+    });
+    const obecneSD = portfel.rows.length > 0 ? Number(portfel.rows[0].solid_dice) : 0;
+    const proba = Math.floor(Math.random() * 30) + 1;
+    const realnaStrata = Math.min(proba, obecneSD);
+
+    await db.execute({
+        sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
+        args: [realnaStrata, interaction.user.id, interaction.guild.id],
+    });
+    const wiadomosci2 = [ // Negatywne
+        "Tekst negatywny 1"
+    ];
+    const wiadomosc = wiadomosci2[Math.floor(Math.random() * wiadomosci2.length)];
+
+    const embed = new EmbedBuilder()
+        .setColor(0xFF0000)
+        .setTitle("🐾 Pink Paws Heist - Porażka!")
+        .setDescription(wiadomosc)
+        .addFields({ name: "Straciłeś/aś ", value:`**-${realnaStrata} Solid Dice** <:Red_roll:1512521789748547715>` });
+
+        await interaction.reply({embeds: [embed] });
+    }
+
 
 });
