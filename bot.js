@@ -1,7 +1,8 @@
 // token_bot token_db url_db
 import { createClient } from "@libsql/client";
 import "dotenv/config";
-import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js"
+import { existsSync } from "fs";
+import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js"
 import { db, initDB } from "./create-database-table.js";
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
@@ -48,7 +49,7 @@ client.once("ready", async () => {
         .setName("ntegra")
         .setDescription("Ustaw kanał gry - Nte Gra")
         .addChannelOption((opt) =>
-            opt.setName("kanal").setDescription("Wybierz kanał").setRequired(true)
+            opt.setName("kanal").setDescription("Wybierz kanał").setRequired(true).addChannelTypes(ChannelType.GuildText)
         ),
 
         new SlashCommandBuilder()
@@ -76,6 +77,20 @@ client.once("ready", async () => {
         new SlashCommandBuilder()
         .setName("plecak")
         .setDescription("Sprawdź swój plecak"),
+
+        new SlashCommandBuilder()
+        .setName("skiny")
+        .setDescription("Kup skiny postaci za Solid Dice"),
+
+        new SlashCommandBuilder()
+        .setName("addskin")
+        .setDescription("[Administracja bota] Dodaj lub zaktualizuj skin w /skiny")
+        .addStringOption((opt) =>
+            opt.setName("plik").setDescription("Nazwa pliku w Gra/skins (np. Nanally3.jpg)").setRequired(true)
+        )
+        .addStringOption((opt) =>
+            opt.setName("nazwa").setDescription("Nazwa postaci wyświetlana w /skiny").setRequired(true)
+        ),
 
         // new SlashCommandBuilder()
         // .setName("wymiana")
@@ -106,6 +121,14 @@ client.once("ready", async () => {
 
 client.login(process.env.token_bot);
 
+process.on('unhandledRejection', (reason) => {
+    console.error('Nieobsłużone odrzucenie:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Krytyczny błąd bota:', error);
+});
+
 async function checkcooldown(userId, guildId, komenda, cooldownMs) {
     const teraz = Date.now();
     const wynik = await db.execute({
@@ -132,14 +155,81 @@ async function checkcooldown(userId, guildId, komenda, cooldownMs) {
     return null;
 }
 
+// Uprawnienia administracyjne bota - właściciele bota, osoby z uprawnieniem
+// Administrator na danym serwerze, oraz osoby z rolą ustawioną przez /administracja
+async function czyAdministratorBota(interaction) {
+    if (OWNER_IDS.includes(interaction.user.id)) return true;
+    if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
 
-//Solid Dice 
+    const wynik = await db.execute({
+        sql: "SELECT rola_id FROM administracja WHERE guild_id = ?",
+        args: [interaction.guild.id],
+    });
+    if (wynik.rows.length === 0) return false;
+
+    const rolaId = wynik.rows[0].rola_id;
+    return rolaId ? interaction.member.roles.cache.has(rolaId) : false;
+}
+
+
+//Solid Dice
 
 async function addSolidDice(userId, guildId, ilosc) {
     await db.execute({
         sql: "INSERT INTO ekonomia (user_id, guild_id, solid_dice, solid_dice_total) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, guild_id) DO UPDATE SET solid_dice = solid_dice + ?, solid_dice_total = solid_dice_total + ?",
         args: [userId, guildId, ilosc, ilosc, ilosc, ilosc],
     });
+}
+
+async function getSolidDice(userId, guildId) {
+    const portfel = await db.execute({
+        sql: "SELECT solid_dice FROM ekonomia WHERE user_id = ? AND guild_id = ?",
+        args: [userId, guildId],
+    });
+    return portfel.rows.length > 0 ? Number(portfel.rows[0].solid_dice) : 0;
+}
+
+// Skiny postaci
+
+const CENA_SKINA = 100;
+
+async function getKatalogSkinow() {
+    const wynik = await db.execute("SELECT plik, nazwa FROM skiny ORDER BY nazwa ASC, plik ASC");
+    return wynik.rows;
+}
+
+async function getPosiadaneSkiny(userId, guildId) {
+    const wynik = await db.execute({
+        sql: "SELECT plik FROM skiny_gracza WHERE user_id = ? AND guild_id = ?",
+        args: [userId, guildId],
+    });
+    return new Set(wynik.rows.map(r => r.plik));
+}
+
+async function kupSkina(userId, guildId, plik) {
+    const posiadane = await getPosiadaneSkiny(userId, guildId);
+    if (posiadane.has(plik)) return { sukces: false, powod: "posiadasz" };
+
+    const solidDice = await getSolidDice(userId, guildId);
+    if (solidDice < CENA_SKINA) return { sukces: false, powod: "brak_srodkow" };
+
+    await db.execute({
+        sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
+        args: [CENA_SKINA, userId, guildId],
+    });
+
+    try {
+        await db.execute({
+            sql: "INSERT INTO skiny_gracza (user_id, guild_id, plik) VALUES (?, ?, ?)",
+            args: [userId, guildId, plik],
+        });
+    } catch (err) {
+        // ktoś kupił ten sam skin w tej samej chwili - zwróć Solid Dice
+        await addSolidDice(userId, guildId, CENA_SKINA);
+        return { sukces: false, powod: "posiadasz" };
+    }
+
+    return { sukces: true };
 }
 
 // Kawiarnia - produkuje 1 Solid Dice na godzinę, magazyn max 48
@@ -615,6 +705,7 @@ async function getUstawienia(userId, guildId) {
 }
 
 client.on("interactionCreate", async (interaction) => {
+    try {
     if (!interaction.guild) return;
 
     if (interaction.isButton()) {
@@ -807,7 +898,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "removecooldown") {
-        if (!OWNER_IDS.includes(interaction.user.id)) {
+        if (!(await czyAdministratorBota(interaction))) {
             await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
             return;
         }
@@ -820,6 +911,60 @@ client.on("interactionCreate", async (interaction) => {
         });
 
         await interaction.reply({ content: `Cooldowny dla wszystkich komend ekonomii zostały usunięte dla ${user}`, ephemeral: true})
+    }
+
+    if (interaction.commandName === "administracja") {
+        if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) && !OWNER_IDS.includes(interaction.user.id)) {
+            await interaction.reply({ content: "❗ Tylko osoby z uprawnieniem Administrator mogą ustawiać rolę zarządzającą botem.", ephemeral: true });
+            return;
+        }
+
+        const rola = interaction.options.getRole("rola");
+
+        await db.execute({
+            sql: "INSERT INTO administracja (guild_id, rola_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET rola_id = ?",
+            args: [interaction.guild.id, rola.id, rola.id],
+        });
+
+        await interaction.reply({ content: `✅ Rola ${rola} może teraz używać \`/ntegra\` i \`/removecooldown\`.`, ephemeral: true });
+    }
+
+    if (interaction.commandName === "ntegra") {
+        if (!(await czyAdministratorBota(interaction))) {
+            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            return;
+        }
+
+        const kanal = interaction.options.getChannel("kanal");
+
+        await db.execute({
+            sql: "INSERT INTO serwery (guild_id, kanal_id) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET kanal_id = ?",
+            args: [interaction.guild.id, kanal.id, kanal.id],
+        });
+
+        await interaction.reply({ content: `✅ Kanał ekonomii ustawiony na ${kanal}.`, ephemeral: true });
+    }
+
+    if (interaction.commandName === "addskin") {
+        if (!OWNER_IDS.includes(interaction.user.id)) {
+            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            return;
+        }
+
+        const plik = interaction.options.getString("plik").trim();
+        const nazwa = interaction.options.getString("nazwa").trim();
+
+        if (!existsSync(`./Gra/skins/${plik}`)) {
+            await interaction.reply({ content: `❗ Nie znaleziono pliku \`Gra/skins/${plik}\`. Wgraj plik na serwer przed dodaniem skina.`, ephemeral: true });
+            return;
+        }
+
+        await db.execute({
+            sql: "INSERT INTO skiny (plik, nazwa) VALUES (?, ?) ON CONFLICT(plik) DO UPDATE SET nazwa = ?",
+            args: [plik, nazwa, nazwa],
+        });
+
+        await interaction.reply({ content: `✅ Skin **${nazwa}** (\`${plik}\`) jest teraz dostępny w \`/skiny\`.`, ephemeral: true });
     }
 
     if (interaction.commandName === "nteleaderboard") {
@@ -1067,8 +1212,9 @@ if (interaction.commandName === "plecak") {
     };
 
     const przyciskPoprzedni = new ButtonBuilder().setCustomId("poprzednia").setLabel("Poprzedni").setStyle(ButtonStyle.Primary).setDisabled(true);
+    const przyciskSzukaj = new ButtonBuilder().setCustomId("szukaj_postac").setLabel("🔍 Szukaj").setStyle(ButtonStyle.Secondary).setDisabled(postacie.rows.length === 0);
     const przyciskNastepny = new ButtonBuilder().setCustomId("nastepna").setLabel("Nastepny").setStyle(ButtonStyle.Primary).setDisabled(maxStron <= 1);
-    const wierszPrzyciskow = new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny);
+    const wierszPrzyciskow = new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny);
 
     let aktualnaStrona = 0;
     const poczatkowaStrona = generujStrone(aktualnaStrona);
@@ -1085,6 +1231,45 @@ if (interaction.commandName === "plecak") {
 
     collector.on("collect", async (i) => {
     try {
+        if (i.customId === "szukaj_postac") {
+            const modal = new ModalBuilder()
+                .setCustomId("plecak_szukaj_modal")
+                .setTitle("Szukaj postaci")
+                .addComponents(
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder()
+                            .setCustomId("nazwa_postaci")
+                            .setLabel("Nazwa postaci")
+                            .setStyle(TextInputStyle.Short)
+                            .setRequired(true)
+                    )
+                );
+
+            await i.showModal(modal);
+            const submitted = await i.awaitModalSubmit({ time: 60000, filter: (m) => m.user.id === interaction.user.id }).catch(() => null);
+            if (!submitted) return;
+
+            const szukanaNazwa = submitted.fields.getTextInputValue("nazwa_postaci").trim().toLowerCase();
+            const znalezionyIndeks = postacie.rows.findIndex(p => p.postac.toLowerCase().includes(szukanaNazwa));
+
+            if (znalezionyIndeks === -1) {
+                await submitted.reply({ content: `❗ Nie znaleziono postaci "${szukanaNazwa}" w Twoim plecaku.`, ephemeral: true });
+                return;
+            }
+
+            aktualnaStrona = znalezionyIndeks + 1;
+            przyciskPoprzedni.setDisabled(aktualnaStrona === 0);
+            przyciskNastepny.setDisabled(aktualnaStrona === maxStron - 1);
+
+            const nowaStronaSzukana = generujStrone(aktualnaStrona);
+            await submitted.update({
+                embeds: nowaStronaSzukana.embeds,
+                files: nowaStronaSzukana.files,
+                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny)]
+            });
+            return;
+        }
+
         if (i.customId === "poprzednia") aktualnaStrona--;
         else if (i.customId === "nastepna") aktualnaStrona++;
 
@@ -1096,7 +1281,7 @@ if (interaction.commandName === "plecak") {
         await i.update({
             embeds: nowaStrona.embeds,
             files: nowaStrona.files,
-            components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny)]
+            components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny)]
         });
     } catch (error) {
         console.error("Błąd podczas aktualizacji plecaka:", error);
@@ -1105,18 +1290,109 @@ if (interaction.commandName === "plecak") {
 
     collector.on("end", () => {
         przyciskPoprzedni.setDisabled(true);
+        przyciskSzukaj.setDisabled(true);
         przyciskNastepny.setDisabled(true);
-        wiadomosc.edit({ components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny)] }).catch(() => {});
+        wiadomosc.edit({ components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny)] }).catch(() => {});
     });
 }
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('Nieobsłużone odrzucenie:', reason);
-});
 
-process.on('uncaughtException', (error) => {
-    console.error('Krytyczny błąd bota:', error);
-});
+if (interaction.commandName === "skiny") {
+    const katalog = await getKatalogSkinow();
 
+    if (katalog.length === 0) {
+        await interaction.reply({ content: "❗ Sklep skinów jest aktualnie pusty.", ephemeral: true });
+        return;
+    }
+
+    const posiadane = await getPosiadaneSkiny(interaction.user.id, interaction.guild.id);
+    const maxStronSkiny = katalog.length;
+
+    const generujStroneSkina = (indeks) => {
+        const skin = katalog[indeks];
+        const czyPosiadany = posiadane.has(skin.plik);
+
+        const embed = new EmbedBuilder()
+            .setColor(0x00CED1)
+            .setImage(`attachment://${skin.plik}`)
+            .setFooter({ text: `${skin.nazwa} • ${czyPosiadany ? "Posiadasz" : `${CENA_SKINA} Solid Dice`} • Skin ${indeks + 1}/${maxStronSkiny}` });
+
+        const attachment = new AttachmentBuilder(`./Gra/skins/${skin.plik}`, { name: skin.plik });
+
+        const btnKup = new ButtonBuilder()
+            .setCustomId("skiny_kup")
+            .setLabel(czyPosiadany ? "✅ Posiadasz" : `Kup za ${CENA_SKINA}`)
+            .setStyle(czyPosiadany ? ButtonStyle.Secondary : ButtonStyle.Success)
+            .setDisabled(czyPosiadany);
+
+        return { embeds: [embed], files: [attachment], btnKup };
+    };
+
+    const przyciskPoprzedni = new ButtonBuilder().setCustomId("skiny_poprzednia").setLabel("Poprzedni").setStyle(ButtonStyle.Primary).setDisabled(true);
+    const przyciskNastepny = new ButtonBuilder().setCustomId("skiny_nastepna").setLabel("Nastepny").setStyle(ButtonStyle.Primary).setDisabled(maxStronSkiny <= 1);
+
+    let aktualnaStronaSkiny = 0;
+    const poczatkowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
+
+    const wiadomoscSkiny = await interaction.reply({
+        embeds: poczatkowaStronaSkiny.embeds,
+        files: poczatkowaStronaSkiny.files,
+        components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, poczatkowaStronaSkiny.btnKup, przyciskNastepny)],
+        fetchReply: true,
+    });
+
+    const filterSkiny = (i) => i.user.id === interaction.user.id;
+    const collectorSkiny = wiadomoscSkiny.createMessageComponentCollector({ filter: filterSkiny, time: 60000 });
+
+    collectorSkiny.on("collect", async (i) => {
+        try {
+            if (i.customId === "skiny_kup") {
+                const skin = katalog[aktualnaStronaSkiny];
+                const wynikZakupu = await kupSkina(interaction.user.id, interaction.guild.id, skin.plik);
+
+                if (!wynikZakupu.sukces) {
+                    const powodTresc = wynikZakupu.powod === "brak_srodkow"
+                        ? "❗ Nie masz wystarczająco Solid Dice na ten skin!"
+                        : "❗ Już posiadasz ten skin!";
+                    await i.reply({ content: powodTresc, ephemeral: true });
+                    return;
+                }
+
+                posiadane.add(skin.plik);
+
+                przyciskPoprzedni.setDisabled(aktualnaStronaSkiny === 0);
+                przyciskNastepny.setDisabled(aktualnaStronaSkiny === maxStronSkiny - 1);
+                const nowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
+
+                await i.update({
+                    embeds: nowaStronaSkiny.embeds,
+                    files: nowaStronaSkiny.files,
+                    components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, nowaStronaSkiny.btnKup, przyciskNastepny)],
+                });
+                await i.followUp({ content: `✅ Kupiłeś skin **${skin.nazwa}**!`, ephemeral: true });
+                return;
+            }
+
+            if (i.customId === "skiny_poprzednia") aktualnaStronaSkiny--;
+            else if (i.customId === "skiny_nastepna") aktualnaStronaSkiny++;
+
+            przyciskPoprzedni.setDisabled(aktualnaStronaSkiny === 0);
+            przyciskNastepny.setDisabled(aktualnaStronaSkiny === maxStronSkiny - 1);
+            const nowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
+
+            await i.update({
+                embeds: nowaStronaSkiny.embeds,
+                files: nowaStronaSkiny.files,
+                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, nowaStronaSkiny.btnKup, przyciskNastepny)],
+            });
+        } catch (error) {
+            console.error("Błąd podczas aktualizacji /skiny:", error);
+        }
+    });
+
+    collectorSkiny.on("end", () => {
+        wiadomoscSkiny.edit({ components: [] }).catch(() => {});
+    });
+}
 
 if (interaction.commandName === "pinkpawsheist") {
     const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", 48 * 60 * 60 * 1000);
@@ -1219,5 +1495,14 @@ if (interaction.commandName === "animacje") {
 
     await interaction.reply({ embeds: [embed], components: [rowRoll, rowKawiarnia], ephemeral: true });
 }
-
+    } catch (error) {
+        console.error("Błąd w interactionCreate:", error);
+        try {
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: "❗ Wystąpił nieoczekiwany błąd. Spróbuj ponownie.", ephemeral: true });
+            } else {
+                await interaction.reply({ content: "❗ Wystąpił nieoczekiwany błąd. Spróbuj ponownie.", ephemeral: true });
+            }
+        } catch {}
+    }
 });

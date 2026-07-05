@@ -59,6 +59,51 @@ export async function initDB() {
             // kolumna już istnieje - baza była utworzona przed dodaniem animacji kawiarni
         }
 
+        await db.execute(`CREATE TABLE IF NOT EXISTS administracja (
+            guild_id TEXT PRIMARY KEY,
+            rola_id TEXT
+        )`);
+
+        await db.execute(`CREATE TABLE IF NOT EXISTS skiny (
+            plik TEXT PRIMARY KEY,
+            nazwa TEXT NOT NULL
+        )`);
+
+        await db.execute(`CREATE TABLE IF NOT EXISTS skiny_gracza (
+            user_id TEXT,
+            guild_id TEXT,
+            plik TEXT,
+            PRIMARY KEY (user_id, guild_id, plik)
+        )`);
+
+        const startoweSkiny = [
+            ["Nanally_skin.jpg", "Nanally"],
+            ["Nanally3.jpg", "Nanally"],
+            ["Nanally4.jpg", "Nanally"],
+            ["Nanally5.jpg", "Nanally"],
+            ["Chiz2.jpg", "Chiz"],
+            ["Chiz3.jpg", "Chiz"],
+            ["Daffodill2.jpg", "Daffodill"],
+            ["Fadia2.jpg", "Fadia"],
+            ["Hotori3.jpg", "Hotori"],
+            ["Jiuyuan2.jpg", "Jiuyuan"],
+            ["Mint1.jpg", "Mint"],
+            ["Mint3.jpg", "Mint"],
+            ["Sakiri2.jpg", "Sakiri"],
+            ["m_mc1.jpg", "MC"],
+            ["m_mc2.jpg", "MC"],
+            ["m_mc3.jpg", "MC"],
+            ["m_mc4.jpg", "MC"],
+            ["m_mc5.jpg", "MC"],
+        ];
+
+        for (const [plik, nazwa] of startoweSkiny) {
+            await db.execute({
+                sql: "INSERT INTO skiny (plik, nazwa) VALUES (?, ?) ON CONFLICT(plik) DO NOTHING",
+                args: [plik, nazwa],
+            });
+        }
+
         console.log("Baza danych turso działa poprawnie");
     } catch (err) {
         console.error("Błąd podczas tworzenia tabel:", err);
