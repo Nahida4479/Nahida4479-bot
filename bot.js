@@ -635,9 +635,7 @@ async function pokazRollAnimacje(interaction) {
         return klatka.replace(/```$/, "") + stopka + "\n```";
     });
 
-    console.log(klatkiZStopka[0]); // tymczasowo
-    
-    const msg = await interaction.reply({ content: klatkiZStopka[0], fetchReply: true });
+    const msg = await interaction.editReply({ content: klatkiZStopka[0] });
     for (let i = 1; i < klatkiZStopka.length; i++) {
         await new Promise(r => setTimeout(r, 600));
         await msg.edit(klatkiZStopka[i]);
@@ -683,7 +681,7 @@ const kawiarniaAnimacja = [
 ];
 
 async function pokazKawiarniaAnimacje(interaction) {
-    const msg = await interaction.reply({ content: kawiarniaAnimacja[0], fetchReply: true });
+    const msg = await interaction.editReply({ content: kawiarniaAnimacja[0] });
     for (let i = 1; i < kawiarniaAnimacja.length; i++) {
         await new Promise(r => setTimeout(r, 700));
         await msg.edit(kawiarniaAnimacja[i]);
@@ -1032,6 +1030,8 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "kawiarnia") {
+        await interaction.deferReply();
+
         const ustawieniaAnim = await getUstawienia(interaction.user.id, interaction.guild.id);
         const animacjaWlaczona = ustawieniaAnim.animacja_kawiarnia === 1;
 
@@ -1059,14 +1059,12 @@ client.on("interactionCreate", async (interaction) => {
 
         const row = new ActionRowBuilder().addComponents(btnOdbierz);
 
-        if (animacjaWlaczona) {
-            await interaction.editReply({ content: "", embeds: [embed], components: [row] });
-        } else {
-            await interaction.reply({ embeds: [embed], components: [row] });
-        }
+        await interaction.editReply({ content: "", embeds: [embed], components: [row] });
     }
 
     if (interaction.commandName === "roll") {
+    await interaction.deferReply();
+
     const portfel = await db.execute({
         sql: "SELECT solid_dice FROM ekonomia WHERE user_id = ? AND guild_id = ?",
         args: [interaction.user.id, interaction.guild.id],
@@ -1075,7 +1073,7 @@ client.on("interactionCreate", async (interaction) => {
     const solidDice = portfel.rows.length > 0 ? Number(portfel.rows[0].solid_dice) : 0;
 
     if (solidDice < 10) {
-        await interaction.reply({ content: `❗ Nie masz wystarczająco Solid Dice! Posiadasz **${solidDice}/10** <:Red_roll:1512521789748547715>`, ephemeral: true });
+        await interaction.editReply({ content: `❗ Nie masz wystarczająco Solid Dice! Posiadasz **${solidDice}/10** <:Red_roll:1512521789748547715>` });
         return;
     }
 
@@ -1127,11 +1125,13 @@ client.on("interactionCreate", async (interaction) => {
             await pokazRollAnimacje(interaction);
             await interaction.editReply({ content: "", embeds: [embed], files: [obrazek], components: [rzadkoscRow] });
         } else {
-            await interaction.reply({ content: "", embeds: [embed], files: [obrazek], components: [rzadkoscRow] });
+            await interaction.editReply({ content: "", embeds: [embed], files: [obrazek], components: [rzadkoscRow] });
         }
 }
 
 if (interaction.commandName === "plecak") {
+    await interaction.deferReply();
+
     const ekwipunek = await db.execute({
         sql: "SELECT item_nazwa, ilosc FROM ekwipunek WHERE user_id = ? AND guild_id = ?",
         args: [interaction.user.id, interaction.guild.id],
@@ -1219,11 +1219,10 @@ if (interaction.commandName === "plecak") {
     let aktualnaStrona = 0;
     const poczatkowaStrona = generujStrone(aktualnaStrona);
 
-    const wiadomosc = await interaction.reply({
+    const wiadomosc = await interaction.editReply({
         embeds: poczatkowaStrona.embeds,
         files: poczatkowaStrona.files,
         components: [wierszPrzyciskow],
-        fetchReply: true
     });
 
     const filter = (i) => i.user.id === interaction.user.id;
@@ -1297,10 +1296,12 @@ if (interaction.commandName === "plecak") {
 }
 
 if (interaction.commandName === "skiny") {
+    await interaction.deferReply();
+
     const katalog = await getKatalogSkinow();
 
     if (katalog.length === 0) {
-        await interaction.reply({ content: "❗ Sklep skinów jest aktualnie pusty.", ephemeral: true });
+        await interaction.editReply({ content: "❗ Sklep skinów jest aktualnie pusty." });
         return;
     }
 
@@ -1340,7 +1341,7 @@ if (interaction.commandName === "skiny") {
     let aktualnaStronaSkiny = 0;
     const poczatkowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
 
-    const wiadomoscSkiny = await interaction.reply({
+    const wiadomoscSkiny = await interaction.editReply({
         content: `Strona ${aktualnaStronaSkiny + 1}/${maxStronSkiny}`,
         embeds: poczatkowaStronaSkiny.embeds,
         files: poczatkowaStronaSkiny.files,
@@ -1348,7 +1349,6 @@ if (interaction.commandName === "skiny") {
             new ActionRowBuilder().addComponents(...poczatkowaStronaSkiny.przyciskiKup),
             new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny),
         ],
-        fetchReply: true,
     });
 
     const filterSkiny = (i) => i.user.id === interaction.user.id;
