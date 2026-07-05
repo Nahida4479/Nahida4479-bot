@@ -556,7 +556,7 @@ async function pokazRollAnimacje(interaction) {
 }
 
 const kawiarniaRysunek = [
-"               (",
+"                ",
 "                          )     (",
 "                   ___...(-------)-....___",
 "               .-\"\"       )    (          \"\"-.",
@@ -900,7 +900,7 @@ client.on("interactionCreate", async (interaction) => {
         const embed = new EmbedBuilder()
             .setColor(0x8B5A2B)
             .setTitle("☕ Kawiarnia")
-            .setDescription("Kawiarnia produkuje **1 Solid Dice** co godzinę (magazyn max **48**).")
+            .setDescription("Kawiarnia produkuje **1 Solid Dice** co godzinę (max **48**).")
             .addFields(
                 { name: "Dostępne do odebrania", value: `**${dostepne} Solid Dice** <:Red_roll:1512521789748547715>` },
                 { name: "Czas od ostatniego odebrania", value: formatCzas(teraz - ostatnio) },
