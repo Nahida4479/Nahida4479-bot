@@ -32,9 +32,9 @@ client.once("ready", async () => {
         .setName("pinkpawsheist")
         .setDescription("Bierzesz udział w wydarzeniu - Pink Paws Heist"),
 
-        // new SlashCommandBuilder()
-        // .setName("kawiarnia")
-        // .setDescription("Odbierz Solid Dice z kawiarni"),
+        new SlashCommandBuilder()
+        .setName("kawiarnia")
+        .setDescription("Odbierz Solid Dice z kawiarni"),
 
         // new SlashCommandBuilder()
         // .setName("delivery")
@@ -140,6 +140,61 @@ async function addSolidDice(userId, guildId, ilosc) {
         sql: "INSERT INTO ekonomia (user_id, guild_id, solid_dice, solid_dice_total) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, guild_id) DO UPDATE SET solid_dice = solid_dice + ?, solid_dice_total = solid_dice_total + ?",
         args: [userId, guildId, ilosc, ilosc, ilosc, ilosc],
     });
+}
+
+// Kawiarnia - produkuje 1 Solid Dice na godzinę, magazyn max 48
+
+const KAWIARNIA_MAX_GODZIN = 48;
+const KAWIARNIA_GODZINA_MS = 60 * 60 * 1000;
+
+async function getKawiarniaOstatnio(userId, guildId) {
+    const wynik = await db.execute({
+        sql: "SELECT ostatnio FROM cooldowny WHERE user_id = ? AND guild_id = ? AND komenda = ?",
+        args: [userId, guildId, "kawiarnia_produkcja"],
+    });
+
+    if (wynik.rows.length === 0) {
+        const teraz = Date.now();
+        await db.execute({
+            sql: "INSERT INTO cooldowny (user_id, guild_id, komenda, ostatnio) VALUES (?, ?, ?, ?)",
+            args: [userId, guildId, "kawiarnia_produkcja", teraz],
+        });
+        return teraz;
+    }
+
+    return Number(wynik.rows[0].ostatnio);
+}
+
+function obliczKawiarnie(ostatnio) {
+    const teraz = Date.now();
+    const godzinyPelne = Math.floor((teraz - ostatnio) / KAWIARNIA_GODZINA_MS);
+    const dostepne = Math.min(godzinyPelne, KAWIARNIA_MAX_GODZIN);
+    return { dostepne, godzinyPelne, teraz };
+}
+
+async function odbierzKawiarnie(userId, guildId) {
+    const ostatnio = await getKawiarniaOstatnio(userId, guildId);
+    const { dostepne, godzinyPelne, teraz } = obliczKawiarnie(ostatnio);
+
+    if (dostepne <= 0) return { dostepne: 0 };
+
+    // Po przekroczeniu magazynu (48h) nadmiar czasu przepada - zegar startuje od teraz
+    const nowyOstatnio = godzinyPelne >= KAWIARNIA_MAX_GODZIN ? teraz : ostatnio + dostepne * KAWIARNIA_GODZINA_MS;
+
+    await db.execute({
+        sql: "UPDATE cooldowny SET ostatnio = ? WHERE user_id = ? AND guild_id = ? AND komenda = ?",
+        args: [nowyOstatnio, userId, guildId, "kawiarnia_produkcja"],
+    });
+    await addSolidDice(userId, guildId, dostepne);
+
+    return { dostepne };
+}
+
+function formatCzas(ms) {
+    const godziny = Math.floor(ms / 3600000);
+    const minuty = Math.floor((ms % 3600000) / 60000);
+    const sekundy = Math.floor((ms % 60000) / 1000);
+    return `${godziny}h ${minuty}m ${sekundy}s`;
 }
 
 const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill", "Jiuyuan", "Hotori", "Nanally", "Chiz", "Lacrimosa", "Chaos"];
@@ -500,6 +555,25 @@ async function pokazRollAnimacje(interaction) {
     await new Promise(r => setTimeout(r, 400));
 }
 
+const kawiarniaAnimacja = [
+"```\n┌────────────────────┐\n│                    │\n│                    │\n│                    │\n│                    │\n└────────────────────┘\n  Otwieranie kawiarni...\n```",
+
+"```\n┌────────────────────┐\n│                    │\n│                    │\n│                    │\n│        ___         │\n└────────────────────┘\n  Otwieranie kawiarni...\n```",
+
+"```\n┌────────────────────┐\n│                    │\n│        (  )        │\n│         )(         │\n│      _________     │\n└────────────────────┘\n  ☕ Parzenie kawy...\n```",
+
+"```\n┌────────────────────┐\n│     (   )   )      │\n│      )   (         │\n│     _________      │\n│    (_________)     │\n└────────────────────┘\n  ✅ Kawiarnia otwarta!\n```",
+];
+
+async function pokazKawiarniaAnimacje(interaction) {
+    const msg = await interaction.reply({ content: kawiarniaAnimacja[0], fetchReply: true });
+    for (let i = 1; i < kawiarniaAnimacja.length; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        await msg.edit(kawiarniaAnimacja[i]);
+    }
+    await new Promise(r => setTimeout(r, 500));
+}
+
 async function getUstawienia(userId, guildId) {
     const wynik = await db.execute({
         sql: "SELECT animacja_roll, animacja_plecak FROM ustawienia WHERE user_id = ? AND guild_id = ?",
@@ -544,6 +618,31 @@ client.on("interactionCreate", async (interaction) => {
         });
         const komunikat = akcja === "wlacz" ? "✅ Animacja została włączona!" : "❌ Animacja została wyłączona!";
         await interaction.reply({ content: komunikat, ephemeral: true });
+        return;
+    }
+
+    if (interaction.customId.startsWith("kawiarnia_odbior_")) {
+        const userId = interaction.customId.replace("kawiarnia_odbior_", "");
+        if (interaction.user.id !== userId) {
+            await interaction.reply({ content: "❗ To nie twoja kawiarnia!", ephemeral: true });
+            return;
+        }
+
+        const { dostepne } = await odbierzKawiarnie(interaction.user.id, interaction.guild.id);
+
+        if (dostepne <= 0) {
+            await interaction.reply({ content: "❗ Nie masz jeszcze nic do odebrania z kawiarni! Wróć za jakiś czas.", ephemeral: true });
+            return;
+        }
+
+        const btnOdebrane = new ButtonBuilder()
+            .setCustomId(`kawiarnia_odbior_${userId}`)
+            .setLabel("☕ Odbierz")
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(true);
+
+        await interaction.update({ components: [new ActionRowBuilder().addComponents(btnOdebrane)] });
+        await interaction.followUp({ content: `☕ Odebrałeś **${dostepne} Solid Dice** <:Red_roll:1512521789748547715>!`, ephemeral: true });
         return;
     }
 
@@ -754,6 +853,38 @@ client.on("interactionCreate", async (interaction) => {
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.reply({ embeds: [embed], files: [obrazek] });
+    }
+
+    if (interaction.commandName === "kawiarnia") {
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "kawiarnia", 4 * 60 * 60 * 1000);
+        if (cooldown) {
+            await interaction.reply({ content: cooldown, ephemeral: true });
+            return;
+        }
+
+        await pokazKawiarniaAnimacje(interaction);
+
+        const ostatnio = await getKawiarniaOstatnio(interaction.user.id, interaction.guild.id);
+        const { dostepne, teraz } = obliczKawiarnie(ostatnio);
+
+        const embed = new EmbedBuilder()
+            .setColor(0x8B5A2B)
+            .setTitle("☕ Kawiarnia")
+            .setDescription("Kawiarnia produkuje **1 Solid Dice** co godzinę (magazyn max **48**).")
+            .addFields(
+                { name: "Dostępne do odebrania", value: `**${dostepne} Solid Dice** <:Red_roll:1512521789748547715>` },
+                { name: "Czas od ostatniego odebrania", value: formatCzas(teraz - ostatnio) },
+            );
+
+        const btnOdbierz = new ButtonBuilder()
+            .setCustomId(`kawiarnia_odbior_${interaction.user.id}`)
+            .setLabel("☕ Odbierz")
+            .setStyle(ButtonStyle.Success)
+            .setDisabled(dostepne <= 0);
+
+        const row = new ActionRowBuilder().addComponents(btnOdbierz);
+
+        await interaction.editReply({ content: "", embeds: [embed], components: [row] });
     }
 
     if (interaction.commandName === "roll") {
