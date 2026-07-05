@@ -44,6 +44,13 @@ export async function initDB() {
             guild_id TEXT PRIMARY KEY, 
             kanal_id TEXT
         )`);
+        await db.execute(`CREATE TABLE IF NOT EXISTS ustawienia (
+            user_id TEXT NOT NULL, 
+            guild_id TEXT NOT NULL, 
+            animacja_roll INTEGER DEFAULT 1, 
+            animacja_plecak INTEGER DEFAULT 1, 
+            PRIMARY KEY (user_id, guild_id)
+        )`);
 
         console.log("Baza danych turso działa poprawnie");
     } catch (err) {

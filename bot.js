@@ -2,7 +2,7 @@
 import { createClient } from "@libsql/client";
 import "dotenv/config";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js"
-import { db, initDB } from "./database.js";
+import { db, initDB } from "./create-database-table.js";
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
 
@@ -32,17 +32,17 @@ client.once("ready", async () => {
         .setName("pinkpawsheist")
         .setDescription("Bierzesz udział w wydarzeniu - Pink Paws Heist"),
 
-        new SlashCommandBuilder()
-        .setName("kawiarnia")
-        .setDescription("Odbierz Solid Dice z kawiarni"),
+        // new SlashCommandBuilder()
+        // .setName("kawiarnia")
+        // .setDescription("Odbierz Solid Dice z kawiarni"),
 
-        new SlashCommandBuilder()
-        .setName("delivery")
-        .setDescription("Wykonaj dostawę aby odebrać Solid Dice"),
+        // new SlashCommandBuilder()
+        // .setName("delivery")
+        // .setDescription("Wykonaj dostawę aby odebrać Solid Dice"),
 
-        new SlashCommandBuilder()
-        .setName("łowienie")
-        .setDescription("Zacznij łowić aby odebrać nagrody"),
+        // new SlashCommandBuilder()
+        // .setName("łowienie")
+        // .setDescription("Zacznij łowić aby odebrać nagrody"),
 
         new SlashCommandBuilder()
         .setName("ntegra")
@@ -77,20 +77,26 @@ client.once("ready", async () => {
         .setName("plecak")
         .setDescription("Sprawdź swój plecak"),
 
+        // new SlashCommandBuilder()
+        // .setName("wymiana")
+        // .setDescription("Wymień itemy na Solid Dice")
+        // .addStringOption((opt) =>
+        //     opt.setName("rzadkosc")
+        //         .setDescription("Wybierz rzadkość")
+        //         .setRequired(true)
+        //         .addChoices(
+        //             { name: "Epicki", value: "epicki" },
+        //             { name: "Rzadki", value: "rzadki" },
+        //             { name: "Zwykły", value: "zwykly" },
+        //             { name: "Wszystkie", value: "all" },
+        //         )
+        // ),
+
         new SlashCommandBuilder()
-        .setName("wymiana")
-        .setDescription("Wymień itemy na Solid Dice")
-        .addStringOption((opt) =>
-            opt.setName("rzadkosc")
-                .setDescription("Wybierz rzadkość")
-                .setRequired(true)
-                .addChoices(
-                    { name: "Epicki", value: "epicki" },
-                    { name: "Rzadki", value: "rzadki" },
-                    { name: "Zwykły", value: "zwykly" },
-                    { name: "Wszystkie", value: "all" },
-                )
-        ),
+        .setName("animacje")
+        .setDescription("Włącz lub wyłącz animacje")
+
+
 
     ].map((cmd) => cmd.toJSON());
 
@@ -358,10 +364,18 @@ const animacjaKlatki = [
 ];
 
 async function pokazAnimacje(interaction) {
-    await interaction.editReply({ content: animacjaKlatki[0], embeds: [], components: [] });
-    for (let i = 1; i < animacjaKlatki.length; i++) {
+    const stopka = "\n> *Animację możesz wyłączyć pod /animacje*";
+    
+    const klatkiZStopka = animacjaKlatki.map(klatka => {
+        return klatka.replace(/```$/, "") + stopka + "\n```";
+    });
+
+    console.log(klatkiZStopka[0]); // 👈 dodaj to tymczasowo
+    
+    await interaction.editReply({ content: klatkiZStopka[0], embeds: [], components: [] });
+    for (let i = 1; i < klatkiZStopka.length; i++) {
         await new Promise(r => setTimeout(r, 1000));
-        await interaction.editReply({ content: animacjaKlatki[i] });
+        await interaction.editReply({ content: klatkiZStopka[i] });
     }
 }
 
@@ -470,12 +484,32 @@ const rollAnimacja = [
 ];
 
 async function pokazRollAnimacje(interaction) {
-    const msg = await interaction.reply({ content: rollAnimacja[0], fetchReply: true });
-    for (let i = 1; i < rollAnimacja.length; i++) {
+    const stopka = "\n Animację możesz wyłączyć pod /animacje";
+    
+    const klatkiZStopka = rollAnimacja.map(klatka => {
+        return klatka.replace(/```$/, "") + stopka + "\n```";
+    });
+
+    console.log(klatkiZStopka[0]); // tymczasowo
+    
+    const msg = await interaction.reply({ content: klatkiZStopka[0], fetchReply: true });
+    for (let i = 1; i < klatkiZStopka.length; i++) {
         await new Promise(r => setTimeout(r, 600));
-        await msg.edit(rollAnimacja[i]);
+        await msg.edit(klatkiZStopka[i]);
     }
     await new Promise(r => setTimeout(r, 400));
+}
+
+async function getUstawienia(userId, guildId) {
+    const wynik = await db.execute({
+        sql: "SELECT animacja_roll, animacja_plecak FROM ustawienia WHERE user_id = ? AND guild_id = ?",
+        args: [userId, guildId],
+    });
+    if (wynik.rows.length === 0) return { animacja_roll: 1, animacja_plecak: 1 };
+    return {
+        animacja_roll: Number(wynik.rows[0].animacja_roll ?? 1),
+        animacja_plecak: Number(wynik.rows[0].animacja_plecak ?? 1),
+    };
 }
 
 client.on("interactionCreate", async (interaction) => {
@@ -484,9 +518,32 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.isButton()) {
         if (interaction.customId === "roll_rzadkosc") {
         await interaction.reply({
-            content: `**📊 Kategorie rzadkości:**\n\n<:Mint:1523097622187999365> **Legendarny**\n<:Nanallyyy:1523097616722952345> **Epicki** \n<:MintShock:1523097608548257824> **Rzadki**\n<:f_mc:1523097583726231563> **Zwykły**`,
+            content: `# 📊 Rzadkości:\n\n<:Mint:1523097622187999365> **Legendarna**\n<:Nanallyyy:1523097616722952345> **Epicka** \n<:MintShock:1523097608548257824> **Rzadka**\n<:f_mc:1523097583726231563> **Zwykła**`,
             ephemeral: true,
         });
+        return;
+    }
+
+       if (interaction.customId.startsWith("animacja_wlacz_") || interaction.customId.startsWith("animacja_wylacz_")) {
+        const czesci = interaction.customId.split("_");
+        const akcja = czesci[1];
+        const animacja = czesci[2];
+        const wartosc = akcja === "wlacz" ? 1 : 0;
+        const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
+        let nowyRoll = obecne.animacja_roll;
+        let nowyPlecak = obecne.animacja_plecak;
+        if (animacja === "roll") nowyRoll = wartosc;
+        else if (animacja === "wymiana") nowyPlecak = wartosc;
+        else if (animacja === "all") {
+            nowyRoll = wartosc;
+            nowyPlecak = wartosc;
+        }
+        await db.execute({
+            sql: "INSERT INTO ustawienia (user_id, guild_id, animacja_roll, animacja_plecak) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, guild_id) DO UPDATE SET animacja_roll = ?, animacja_plecak = ?",
+            args: [interaction.user.id, interaction.guild.id, nowyRoll, nowyPlecak, nowyRoll, nowyPlecak],
+        });
+        const komunikat = akcja === "wlacz" ? "✅ Animacja została włączona!" : "❌ Animacja została wyłączona!";
+        await interaction.reply({ content: komunikat, ephemeral: true });
         return;
     }
 
@@ -610,7 +667,7 @@ client.on("interactionCreate", async (interaction) => {
         const obrazek = new AttachmentBuilder("./Gra/Red_roll.jpg");
 
         const embed = new EmbedBuilder()
-            .setColor(0xFF0000)
+            .setColor(0x00FF00)
             .setTitle("<:Red_roll:1512521789748547715> Daily")
             .setDescription(wiadomosc)
             .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>`})
@@ -646,7 +703,7 @@ client.on("interactionCreate", async (interaction) => {
             return;
         }
 
-        const lista = wynik.rows.map((row, index) =>
+        const lista = wynik.rows.slice(0, 10).map((row, index) =>
         `**${index + 1}.** <@${row.user_id}> - **${row.solid_dice_total} <:Red_roll:1512521789748547715>** `
             ).join("\n");
         const embed = new EmbedBuilder()
@@ -755,6 +812,13 @@ client.on("interactionCreate", async (interaction) => {
         .setStyle(ButtonStyle.Secondary);
     const rzadkoscRow = new ActionRowBuilder().addComponents(przyciskRzadkosci)
 
+    const ustawieniaRoll = await getUstawienia(interaction.user.id, interaction.guild.id);
+        if (ustawieniaRoll.animacja_roll === 1) {
+            await pokazRollAnimacje(interaction);
+            await interaction.editReply({ content: "", embeds: [embed], files: [obrazek], components: [rzadkoscRow] });
+        } else {
+            await interaction.reply({ content: "", embeds: [embed], files: [obrazek], components: [rzadkoscRow] });
+        }
     await pokazRollAnimacje(interaction);
     await interaction.editReply({ content: "", embeds: [embed], files: [obrazek], components:[rzadkoscRow] });
 }
@@ -817,7 +881,7 @@ if (interaction.commandName === "plecak") {
             const embed = new EmbedBuilder()
                 .setColor(0x2B2D31)
                 .setTitle(`Plecak - ${interaction.user.username}`)
-                .setDescription(`**Itemy:**\nEpickie x${epickieSzt}\nRzadkie x${rzadkieSzt}\nZwykłe x${zwykleSzt}`)
+                .setDescription(`**Itemy:**\n<:Nanallyyy:1523097616722952345> Epickie x${epickieSzt}\n<:MintShock:1523097608548257824> Rzadkie x${rzadkieSzt}\n<:f_mc:1523097583726231563> Zwykłe x${zwykleSzt}`)
                 .setFooter({ text: `Strona 1 / ${maxStron}` });
             return { embeds: [embed], files: [] };
         }
@@ -951,5 +1015,34 @@ if (interaction.commandName === "pinkpawsheist") {
     }
 }
 
+if (interaction.commandName === "animacje") {
+    const animacja = interaction.options.getString("animacja");
+    const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
+
+    const statusRoll = obecne.animacja_roll === 1 ? "✅ Włączona" : "❌ Wyłączona";
+    const statusWymiana = obecne.animacja_plecak === 1 ? "✅ Włączona" : "❌ Wyłączona";
+
+    const btnWlacz = new ButtonBuilder()
+        .setCustomId(`animacja_wlacz_${animacja}`)
+        .setLabel("✅ Włącz")
+        .setStyle(ButtonStyle.Success);
+
+    const btnWylacz = new ButtonBuilder()
+        .setCustomId(`animacja_wylacz_${animacja}`)
+        .setLabel("❌ Wyłącz")
+        .setStyle(ButtonStyle.Danger);
+
+    const row = new ActionRowBuilder().addComponents(btnWlacz, btnWylacz);
+
+    const embed = new EmbedBuilder()
+        .setColor(0x9B59B6)
+        .setTitle("⚙️ Ustawienia animacji")
+        .addFields(
+            { name: "🎲 Animacja Roll", value: statusRoll },
+            // { name: "🔄 Animacja Wymiana", value: statusWymiana },
+        );
+
+    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+}
 
 });
