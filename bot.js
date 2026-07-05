@@ -129,7 +129,17 @@ process.on('uncaughtException', (error) => {
     console.error('Krytyczny błąd bota:', error);
 });
 
+async function czyMaBypassCooldown(userId, guildId) {
+    const wynik = await db.execute({
+        sql: "SELECT 1 FROM cooldown_bypass WHERE user_id = ? AND guild_id = ?",
+        args: [userId, guildId],
+    });
+    return wynik.rows.length > 0;
+}
+
 async function checkcooldown(userId, guildId, komenda, cooldownMs) {
+    if (await czyMaBypassCooldown(userId, guildId)) return null;
+
     const teraz = Date.now();
     const wynik = await db.execute({
         sql: "SELECT ostatnio FROM cooldowny WHERE user_id = ? AND guild_id = ? AND komenda = ?",
@@ -914,12 +924,25 @@ client.on("interactionCreate", async (interaction) => {
 
         const user = interaction.options.getUser("user")
 
-        await db.execute({
-            sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie')",
-            args: [user.id, interaction.guild.id]
-        });
+        const maBypass = await czyMaBypassCooldown(user.id, interaction.guild.id);
 
-        await interaction.reply({ content: `Cooldowny dla wszystkich komend ekonomii zostały usunięte dla ${user}`, ephemeral: true})
+        if (maBypass) {
+            await db.execute({
+                sql: "DELETE FROM cooldown_bypass WHERE user_id = ? AND guild_id = ?",
+                args: [user.id, interaction.guild.id],
+            });
+            await interaction.reply({ content: `✅ Cooldowny wróciły do normy dla ${user}.`, ephemeral: true });
+        } else {
+            await db.execute({
+                sql: "INSERT INTO cooldown_bypass (user_id, guild_id) VALUES (?, ?)",
+                args: [user.id, interaction.guild.id],
+            });
+            await db.execute({
+                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie')",
+                args: [user.id, interaction.guild.id]
+            });
+            await interaction.reply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.`, ephemeral: true });
+        }
     }
 
     if (interaction.commandName === "administracja") {

@@ -64,6 +64,12 @@ export async function initDB() {
             rola_id TEXT
         )`);
 
+        await db.execute(`CREATE TABLE IF NOT EXISTS cooldown_bypass (
+            user_id TEXT,
+            guild_id TEXT,
+            PRIMARY KEY (user_id, guild_id)
+        )`);
+
         await db.execute(`CREATE TABLE IF NOT EXISTS skiny (
             plik TEXT PRIMARY KEY,
             nazwa TEXT NOT NULL
