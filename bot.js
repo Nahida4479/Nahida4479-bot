@@ -555,34 +555,61 @@ async function pokazRollAnimacje(interaction) {
     await new Promise(r => setTimeout(r, 400));
 }
 
+const kawiarniaRysunek = [
+"                (                           )",
+"     (                    ___...(-------)-....___",
+"                .-\"\"       )    (          \"\"-.",
+"          .-'``'|-._             )         _.-|",
+"         /  .--.|   `\"\"---...........---\"\"`   |",
+"        /  /    |                             |",
+"        |  |    |                             |",
+"         \\  \\   |                             |",
+"          `\\ `\\ |                             |",
+"            `\\ `|                             |",
+"            _/ /\\                             /",
+"           (__/  \\                           /",
+"        _..---\"\"` \\                         /`\"\"---.._",
+"     .-'           \\                       /          '-.",
+"    :               `-.__             __.-'              :",
+"    :                  ) \"\"---...---\"\" (                 :",
+"     '._               `\"--...___...--\"`              _.'",
+"        \\\"\"--..__                              __..--\"\"/",
+"         '._     \"\"\"----.....______.....----\"\"\"     _.'",
+"            `\"\"--..,,_____            _____,,..--\"\"`",
+"                         `\"\"\"----\"\"\"`",
+];
+
+function ramkaKawiarni(odIndeks, doIndeks) {
+    const stopka = "\n> Animację możesz wyłączyć pod /animacje";
+    const wycinek = kawiarniaRysunek.slice(odIndeks, doIndeks).join("\n");
+    return "```\n" + wycinek + "\n```" + stopka;
+}
+
 const kawiarniaAnimacja = [
-"```\n┌────────────────────┐\n│                    │\n│                    │\n│                    │\n│                    │\n└────────────────────┘\n  Otwieranie kawiarni...\n```",
-
-"```\n┌────────────────────┐\n│                    │\n│                    │\n│                    │\n│        ___         │\n└────────────────────┘\n  Otwieranie kawiarni...\n```",
-
-"```\n┌────────────────────┐\n│                    │\n│        (  )        │\n│         )(         │\n│      _________     │\n└────────────────────┘\n  ☕ Parzenie kawy...\n```",
-
-"```\n┌────────────────────┐\n│     (   )   )      │\n│      )   (         │\n│     _________      │\n│    (_________)     │\n└────────────────────┘\n  ✅ Kawiarnia otwarta!\n```",
+    ramkaKawiarni(8, 13),
+    ramkaKawiarni(3, 18),
+    ramkaKawiarni(0, 21),
 ];
 
 async function pokazKawiarniaAnimacje(interaction) {
     const msg = await interaction.reply({ content: kawiarniaAnimacja[0], fetchReply: true });
     for (let i = 1; i < kawiarniaAnimacja.length; i++) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 700));
         await msg.edit(kawiarniaAnimacja[i]);
     }
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 600));
 }
 
 async function getUstawienia(userId, guildId) {
     const wynik = await db.execute({
-        sql: "SELECT animacja_roll, animacja_plecak FROM ustawienia WHERE user_id = ? AND guild_id = ?",
+        sql: "SELECT animacja_roll, animacja_plecak, animacja_kawiarnia FROM ustawienia WHERE user_id = ? AND guild_id = ?",
         args: [userId, guildId],
     });
-    if (wynik.rows.length === 0) return { animacja_roll: 1, animacja_plecak: 1 };
+    if (wynik.rows.length === 0) return { animacja_roll: 1, animacja_plecak: 1, animacja_kawiarnia: 1 };
     return {
         animacja_roll: Number(wynik.rows[0].animacja_roll ?? 1),
         animacja_plecak: Number(wynik.rows[0].animacja_plecak ?? 1),
+        animacja_kawiarnia: Number(wynik.rows[0].animacja_kawiarnia ?? 1),
     };
 }
 
@@ -606,15 +633,18 @@ client.on("interactionCreate", async (interaction) => {
         const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
         let nowyRoll = obecne.animacja_roll;
         let nowyPlecak = obecne.animacja_plecak;
+        let nowaKawiarnia = obecne.animacja_kawiarnia;
         if (animacja === "roll") nowyRoll = wartosc;
         else if (animacja === "wymiana") nowyPlecak = wartosc;
+        else if (animacja === "kawiarnia") nowaKawiarnia = wartosc;
         else if (animacja === "all") {
             nowyRoll = wartosc;
             nowyPlecak = wartosc;
+            nowaKawiarnia = wartosc;
         }
         await db.execute({
-            sql: "INSERT INTO ustawienia (user_id, guild_id, animacja_roll, animacja_plecak) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, guild_id) DO UPDATE SET animacja_roll = ?, animacja_plecak = ?",
-            args: [interaction.user.id, interaction.guild.id, nowyRoll, nowyPlecak, nowyRoll, nowyPlecak],
+            sql: "INSERT INTO ustawienia (user_id, guild_id, animacja_roll, animacja_plecak, animacja_kawiarnia) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, guild_id) DO UPDATE SET animacja_roll = ?, animacja_plecak = ?, animacja_kawiarnia = ?",
+            args: [interaction.user.id, interaction.guild.id, nowyRoll, nowyPlecak, nowaKawiarnia, nowyRoll, nowyPlecak, nowaKawiarnia],
         });
         const komunikat = akcja === "wlacz" ? "✅ Animacja została włączona!" : "❌ Animacja została wyłączona!";
         await interaction.reply({ content: komunikat, ephemeral: true });
@@ -856,13 +886,12 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "kawiarnia") {
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "kawiarnia", 4 * 60 * 60 * 1000);
-        if (cooldown) {
-            await interaction.reply({ content: cooldown, ephemeral: true });
-            return;
-        }
+        const ustawieniaAnim = await getUstawienia(interaction.user.id, interaction.guild.id);
+        const animacjaWlaczona = ustawieniaAnim.animacja_kawiarnia === 1;
 
-        await pokazKawiarniaAnimacje(interaction);
+        if (animacjaWlaczona) {
+            await pokazKawiarniaAnimacje(interaction);
+        }
 
         const ostatnio = await getKawiarniaOstatnio(interaction.user.id, interaction.guild.id);
         const { dostepne, teraz } = obliczKawiarnie(ostatnio);
@@ -884,7 +913,11 @@ client.on("interactionCreate", async (interaction) => {
 
         const row = new ActionRowBuilder().addComponents(btnOdbierz);
 
-        await interaction.editReply({ content: "", embeds: [embed], components: [row] });
+        if (animacjaWlaczona) {
+            await interaction.editReply({ content: "", embeds: [embed], components: [row] });
+        } else {
+            await interaction.reply({ embeds: [embed], components: [row] });
+        }
     }
 
     if (interaction.commandName === "roll") {
@@ -1145,33 +1178,45 @@ if (interaction.commandName === "pinkpawsheist") {
 }
 
 if (interaction.commandName === "animacje") {
-    const animacja = "roll";
     const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
 
     const statusRoll = obecne.animacja_roll === 1 ? "✅ Włączona" : "❌ Wyłączona";
     const statusWymiana = obecne.animacja_plecak === 1 ? "✅ Włączona" : "❌ Wyłączona";
+    const statusKawiarnia = obecne.animacja_kawiarnia === 1 ? "✅ Włączona" : "❌ Wyłączona";
 
-    const btnWlacz = new ButtonBuilder()
-        .setCustomId(`animacja_wlacz_${animacja}`)
+    const btnWlaczRoll = new ButtonBuilder()
+        .setCustomId("animacja_wlacz_roll")
         .setLabel("✅ Włącz")
         .setStyle(ButtonStyle.Success);
 
-    const btnWylacz = new ButtonBuilder()
-        .setCustomId(`animacja_wylacz_${animacja}`)
+    const btnWylaczRoll = new ButtonBuilder()
+        .setCustomId("animacja_wylacz_roll")
         .setLabel("❌ Wyłącz")
         .setStyle(ButtonStyle.Danger);
 
-    const row = new ActionRowBuilder().addComponents(btnWlacz, btnWylacz);
+    const btnWlaczKawiarnia = new ButtonBuilder()
+        .setCustomId("animacja_wlacz_kawiarnia")
+        .setLabel("✅ Włącz")
+        .setStyle(ButtonStyle.Success);
+
+    const btnWylaczKawiarnia = new ButtonBuilder()
+        .setCustomId("animacja_wylacz_kawiarnia")
+        .setLabel("❌ Wyłącz")
+        .setStyle(ButtonStyle.Danger);
+
+    const rowRoll = new ActionRowBuilder().addComponents(btnWlaczRoll, btnWylaczRoll);
+    const rowKawiarnia = new ActionRowBuilder().addComponents(btnWlaczKawiarnia, btnWylaczKawiarnia);
 
     const embed = new EmbedBuilder()
         .setColor(0x9B59B6)
         .setTitle("⚙️ Ustawienia animacji")
         .addFields(
             { name: "🎲 Animacja Roll", value: statusRoll },
+            { name: "☕ Animacja Kawiarni", value: statusKawiarnia },
             // { name: "🔄 Animacja Wymiana", value: statusWymiana },
         );
 
-    await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+    await interaction.reply({ embeds: [embed], components: [rowRoll, rowKawiarnia], ephemeral: true });
 }
 
 });

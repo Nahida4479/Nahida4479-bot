@@ -45,12 +45,19 @@ export async function initDB() {
             kanal_id TEXT
         )`);
         await db.execute(`CREATE TABLE IF NOT EXISTS ustawienia (
-            user_id TEXT NOT NULL, 
-            guild_id TEXT NOT NULL, 
-            animacja_roll INTEGER DEFAULT 1, 
-            animacja_plecak INTEGER DEFAULT 1, 
+            user_id TEXT NOT NULL,
+            guild_id TEXT NOT NULL,
+            animacja_roll INTEGER DEFAULT 1,
+            animacja_plecak INTEGER DEFAULT 1,
+            animacja_kawiarnia INTEGER DEFAULT 1,
             PRIMARY KEY (user_id, guild_id)
         )`);
+
+        try {
+            await db.execute(`ALTER TABLE ustawienia ADD COLUMN animacja_kawiarnia INTEGER DEFAULT 1`);
+        } catch (err) {
+            // kolumna już istnieje - baza była utworzona przed dodaniem animacji kawiarni
+        }
 
         console.log("Baza danych turso działa poprawnie");
     } catch (err) {
