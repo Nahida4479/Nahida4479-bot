@@ -1305,26 +1305,33 @@ if (interaction.commandName === "skiny") {
     }
 
     const posiadane = await getPosiadaneSkiny(interaction.user.id, interaction.guild.id);
-    const maxStronSkiny = katalog.length;
+    const SKINY_NA_STRONIE = 3;
+    const maxStronSkiny = Math.ceil(katalog.length / SKINY_NA_STRONIE);
 
-    const generujStroneSkina = (indeks) => {
-        const skin = katalog[indeks];
-        const czyPosiadany = posiadane.has(skin.plik);
+    const generujStroneSkina = (indeksStrony) => {
+        const odIndeksu = indeksStrony * SKINY_NA_STRONIE;
+        const skinyNaStronie = katalog.slice(odIndeksu, odIndeksu + SKINY_NA_STRONIE);
 
-        const embed = new EmbedBuilder()
-            .setColor(0x00CED1)
-            .setImage(`attachment://${skin.plik}`)
-            .setFooter({ text: `${skin.nazwa} • ${czyPosiadany ? "Posiadasz" : `${CENA_SKINA} Solid Dice`} • Skin ${indeks + 1}/${maxStronSkiny}` });
+        const embeds = skinyNaStronie.map((skin, i) => {
+            const czyPosiadany = posiadane.has(skin.plik);
+            return new EmbedBuilder()
+                .setColor(0x00CED1)
+                .setImage(`attachment://${skin.plik}`)
+                .setFooter({ text: `${odIndeksu + i + 1}. ${skin.nazwa} • ${czyPosiadany ? "Posiadasz" : `${CENA_SKINA} Solid Dice`}` });
+        });
 
-        const attachment = new AttachmentBuilder(`./Gra/skins/${skin.plik}`, { name: skin.plik });
+        const files = skinyNaStronie.map(skin => new AttachmentBuilder(`./Gra/skins/${skin.plik}`, { name: skin.plik }));
 
-        const btnKup = new ButtonBuilder()
-            .setCustomId("skiny_kup")
-            .setLabel(czyPosiadany ? "✅ Posiadasz" : `Kup za ${CENA_SKINA}`)
-            .setStyle(czyPosiadany ? ButtonStyle.Secondary : ButtonStyle.Success)
-            .setDisabled(czyPosiadany);
+        const przyciskiKup = skinyNaStronie.map((skin, i) => {
+            const czyPosiadany = posiadane.has(skin.plik);
+            return new ButtonBuilder()
+                .setCustomId(`skiny_kup_${odIndeksu + i}`)
+                .setLabel(czyPosiadany ? `${odIndeksu + i + 1}. Posiadasz` : `${odIndeksu + i + 1}. Kup za ${CENA_SKINA}`)
+                .setStyle(czyPosiadany ? ButtonStyle.Secondary : ButtonStyle.Success)
+                .setDisabled(czyPosiadany);
+        });
 
-        return { embeds: [embed], files: [attachment], btnKup };
+        return { embeds, files, przyciskiKup };
     };
 
     const przyciskPoprzedni = new ButtonBuilder().setCustomId("skiny_poprzednia").setLabel("Poprzedni").setStyle(ButtonStyle.Primary).setDisabled(true);
@@ -1334,19 +1341,24 @@ if (interaction.commandName === "skiny") {
     const poczatkowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
 
     const wiadomoscSkiny = await interaction.reply({
+        content: `Strona ${aktualnaStronaSkiny + 1}/${maxStronSkiny}`,
         embeds: poczatkowaStronaSkiny.embeds,
         files: poczatkowaStronaSkiny.files,
-        components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, poczatkowaStronaSkiny.btnKup, przyciskNastepny)],
+        components: [
+            new ActionRowBuilder().addComponents(...poczatkowaStronaSkiny.przyciskiKup),
+            new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny),
+        ],
         fetchReply: true,
     });
 
     const filterSkiny = (i) => i.user.id === interaction.user.id;
-    const collectorSkiny = wiadomoscSkiny.createMessageComponentCollector({ filter: filterSkiny, time: 60000 });
+    const collectorSkiny = wiadomoscSkiny.createMessageComponentCollector({ filter: filterSkiny, time: 180000 });
 
     collectorSkiny.on("collect", async (i) => {
         try {
-            if (i.customId === "skiny_kup") {
-                const skin = katalog[aktualnaStronaSkiny];
+            if (i.customId.startsWith("skiny_kup_")) {
+                const skinIndeks = Number(i.customId.replace("skiny_kup_", ""));
+                const skin = katalog[skinIndeks];
                 const wynikZakupu = await kupSkina(interaction.user.id, interaction.guild.id, skin.plik);
 
                 if (!wynikZakupu.sukces) {
@@ -1364,9 +1376,13 @@ if (interaction.commandName === "skiny") {
                 const nowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
 
                 await i.update({
+                    content: `Strona ${aktualnaStronaSkiny + 1}/${maxStronSkiny}`,
                     embeds: nowaStronaSkiny.embeds,
                     files: nowaStronaSkiny.files,
-                    components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, nowaStronaSkiny.btnKup, przyciskNastepny)],
+                    components: [
+                        new ActionRowBuilder().addComponents(...nowaStronaSkiny.przyciskiKup),
+                        new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny),
+                    ],
                 });
                 await i.followUp({ content: `✅ Kupiłeś skin **${skin.nazwa}**!`, ephemeral: true });
                 return;
@@ -1380,9 +1396,13 @@ if (interaction.commandName === "skiny") {
             const nowaStronaSkiny = generujStroneSkina(aktualnaStronaSkiny);
 
             await i.update({
+                content: `Strona ${aktualnaStronaSkiny + 1}/${maxStronSkiny}`,
                 embeds: nowaStronaSkiny.embeds,
                 files: nowaStronaSkiny.files,
-                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, nowaStronaSkiny.btnKup, przyciskNastepny)],
+                components: [
+                    new ActionRowBuilder().addComponents(...nowaStronaSkiny.przyciskiKup),
+                    new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskNastepny),
+                ],
             });
         } catch (error) {
             console.error("Błąd podczas aktualizacji /skiny:", error);
