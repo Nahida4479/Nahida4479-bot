@@ -819,8 +819,6 @@ client.on("interactionCreate", async (interaction) => {
         } else {
             await interaction.reply({ content: "", embeds: [embed], files: [obrazek], components: [rzadkoscRow] });
         }
-    await pokazRollAnimacje(interaction);
-    await interaction.editReply({ content: "", embeds: [embed], files: [obrazek], components:[rzadkoscRow] });
 }
 
 if (interaction.commandName === "plecak") {
@@ -1016,7 +1014,7 @@ if (interaction.commandName === "pinkpawsheist") {
 }
 
 if (interaction.commandName === "animacje") {
-    const animacja = interaction.options.getString("animacja");
+    const animacja = "roll";
     const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
 
     const statusRoll = obecne.animacja_roll === 1 ? "✅ Włączona" : "❌ Wyłączona";
