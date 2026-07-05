@@ -1192,8 +1192,16 @@ if (interaction.commandName === "plecak") {
         else if (nazwyZwykle.includes(wiersz.item_nazwa)) zwykleSzt += ilosc;
     }
 
-    const sumaRolli = ekonomia.rows.length > 0 ? ekonomia.rows[0].solid_dice_total / 10 : 0;
-    const pozycjaTop = 3;
+    const solidDiceAktualne = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice) : 0;
+    const solidDiceTotal = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice_total) : 0;
+    const sumaRolli = solidDiceTotal / 10;
+
+    const rankingWynik = await db.execute({
+        sql: "SELECT COUNT(*) AS wyzsi FROM ekonomia WHERE guild_id = ? AND solid_dice_total > ?",
+        args: [interaction.guild.id, solidDiceTotal],
+    });
+    const pozycjaTop = Number(rankingWynik.rows[0].wyzsi) + 1;
+
     const maxStron = postacie.rows.length + 1;
 
     // Funkcja generująca zawartość danej strony w locie
@@ -1202,7 +1210,7 @@ if (interaction.commandName === "plecak") {
             const embed = new EmbedBuilder()
                 .setColor(0x2B2D31)
                 .setTitle(`Plecak - ${interaction.user.username}`)
-                .setDescription(`**Itemy:**\n<:Nanallyyy:1523097616722952345> Epickie x${epickieSzt}\n<:MintShock:1523097608548257824> Rzadkie x${rzadkieSzt}\n<:f_mc:1523097583726231563> Zwykłe x${zwykleSzt}`)
+                .setDescription(`**Itemy:**\n<:Nanallyyy:1523097616722952345> Epickie x${epickieSzt}\n<:MintShock:1523097608548257824> Rzadkie x${rzadkieSzt}\n<:f_mc:1523097583726231563> Zwykłe x${zwykleSzt}\n\n**Solid Dice:**\n<:Red_roll:1512521789748547715> Aktualnie: ${solidDiceAktualne}\n<:Red_roll:1512521789748547715> Łącznie zdobyte: ${solidDiceTotal}\n🏆 Miejsce w topce serwera: #${pozycjaTop}`)
                 .setFooter({ text: `Strona 1 / ${maxStron}` });
             return { embeds: [embed], files: [] };
         }
