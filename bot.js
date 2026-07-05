@@ -206,6 +206,17 @@ async function getPosiadaneSkiny(userId, guildId) {
     return new Set(wynik.rows.map(r => r.plik));
 }
 
+async function getPosiadaneSkinyZNazwami(userId, guildId) {
+    const wynik = await db.execute({
+        sql: `SELECT s.plik, s.nazwa FROM skiny_gracza sg
+              JOIN skiny s ON s.plik = sg.plik
+              WHERE sg.user_id = ? AND sg.guild_id = ?
+              ORDER BY s.nazwa ASC, s.plik ASC`,
+        args: [userId, guildId],
+    });
+    return wynik.rows;
+}
+
 async function kupSkina(userId, guildId, plik) {
     const posiadane = await getPosiadaneSkiny(userId, guildId);
     if (posiadane.has(plik)) return { sukces: false, powod: "posiadasz" };
@@ -1147,6 +1158,8 @@ if (interaction.commandName === "plecak") {
         args: [interaction.user.id, interaction.guild.id],
     });
 
+    const posiadaneSkiny = await getPosiadaneSkinyZNazwami(interaction.user.id, interaction.guild.id);
+
     const zdjeciaPostaci = {
     "Adler": "Adler.jpg",
     "Aurelia": "Aurelia.jpg",
@@ -1211,12 +1224,29 @@ if (interaction.commandName === "plecak") {
         return { embeds: [embed], files: pliki };
     };
 
+    const generujStronaSkinyGracza = (indeks) => {
+        const skin = posiadaneSkiny[indeks];
+        const embed = new EmbedBuilder()
+            .setColor(0x2ECC71)
+            .setTitle(`Skiny - ${interaction.user.username}`)
+            .setImage(`attachment://${skin.plik}`)
+            .setFooter({ text: `${skin.nazwa} • Skin ${indeks + 1}/${posiadaneSkiny.length}` });
+
+        const attachment = new AttachmentBuilder(`./Gra/skins/${skin.plik}`, { name: skin.plik });
+
+        return { embeds: [embed], files: [attachment] };
+    };
+
+    let tryb = "plecak";
+
     const przyciskPoprzedni = new ButtonBuilder().setCustomId("poprzednia").setLabel("Poprzedni").setStyle(ButtonStyle.Primary).setDisabled(true);
     const przyciskSzukaj = new ButtonBuilder().setCustomId("szukaj_postac").setLabel("🔍 Szukaj").setStyle(ButtonStyle.Secondary).setDisabled(postacie.rows.length === 0);
     const przyciskNastepny = new ButtonBuilder().setCustomId("nastepna").setLabel("Nastepny").setStyle(ButtonStyle.Primary).setDisabled(maxStron <= 1);
-    const wierszPrzyciskow = new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny);
+    const przyciskSkiny = new ButtonBuilder().setCustomId("plecak_skiny_toggle").setLabel("🎨 Skiny").setStyle(ButtonStyle.Secondary).setDisabled(posiadaneSkiny.length === 0);
+    const wierszPrzyciskow = new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny);
 
     let aktualnaStrona = 0;
+    let aktualnaStronaSkiny = 0;
     const poczatkowaStrona = generujStrone(aktualnaStrona);
 
     const wiadomosc = await interaction.editReply({
@@ -1264,23 +1294,35 @@ if (interaction.commandName === "plecak") {
             await submitted.update({
                 embeds: nowaStronaSzukana.embeds,
                 files: nowaStronaSzukana.files,
-                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny)]
+                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny)]
             });
             return;
         }
 
-        if (i.customId === "poprzednia") aktualnaStrona--;
-        else if (i.customId === "nastepna") aktualnaStrona++;
+        if (i.customId === "plecak_skiny_toggle") {
+            tryb = tryb === "plecak" ? "skiny" : "plecak";
+            przyciskSkiny.setLabel(tryb === "skiny" ? "🔙 Powrót" : "🎨 Skiny");
+            przyciskSzukaj.setDisabled(tryb === "skiny" || postacie.rows.length === 0);
+        } else if (i.customId === "poprzednia") {
+            if (tryb === "skiny") aktualnaStronaSkiny--; else aktualnaStrona--;
+        } else if (i.customId === "nastepna") {
+            if (tryb === "skiny") aktualnaStronaSkiny++; else aktualnaStrona++;
+        }
 
-        przyciskPoprzedni.setDisabled(aktualnaStrona === 0);
-        przyciskNastepny.setDisabled(aktualnaStrona === maxStron - 1);
+        if (tryb === "skiny") {
+            przyciskPoprzedni.setDisabled(aktualnaStronaSkiny === 0);
+            przyciskNastepny.setDisabled(aktualnaStronaSkiny === posiadaneSkiny.length - 1);
+        } else {
+            przyciskPoprzedni.setDisabled(aktualnaStrona === 0);
+            przyciskNastepny.setDisabled(aktualnaStrona === maxStron - 1);
+        }
 
-        const nowaStrona = generujStrone(aktualnaStrona);
+        const nowaZawartosc = tryb === "skiny" ? generujStronaSkinyGracza(aktualnaStronaSkiny) : generujStrone(aktualnaStrona);
 
         await i.update({
-            embeds: nowaStrona.embeds,
-            files: nowaStrona.files,
-            components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny)]
+            embeds: nowaZawartosc.embeds,
+            files: nowaZawartosc.files,
+            components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny)]
         });
     } catch (error) {
         console.error("Błąd podczas aktualizacji plecaka:", error);
@@ -1291,7 +1333,8 @@ if (interaction.commandName === "plecak") {
         przyciskPoprzedni.setDisabled(true);
         przyciskSzukaj.setDisabled(true);
         przyciskNastepny.setDisabled(true);
-        wiadomosc.edit({ components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny)] }).catch(() => {});
+        przyciskSkiny.setDisabled(true);
+        wiadomosc.edit({ components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny)] }).catch(() => {});
     });
 }
 
