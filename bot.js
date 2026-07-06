@@ -45,9 +45,9 @@ client.once("ready", async () => {
         // .setName("delivery")
         // .setDescription("Wykonaj dostawę aby odebrać Solid Dice"),
 
-        // new SlashCommandBuilder()
-        // .setName("łowienie")
-        // .setDescription("Zacznij łowić aby odebrać nagrody"),
+        new SlashCommandBuilder()
+        .setName("łowienie")
+        .setDescription("Zacznij łowić aby zdobyć Solid Dice"),
 
         new SlashCommandBuilder()
         .setName("ntegra")
@@ -1693,6 +1693,120 @@ client.on("interactionCreate", async (interaction) => {
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
+    }
+
+    if (interaction.commandName === "łowienie") {
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", 10 * 60 * 1000);
+        if (cooldown) {
+            await interaction.reply({ content: cooldown, ephemeral: true });
+            return;
+        }
+
+        await interaction.deferReply();
+
+        const LOWIENIE_CEL = 3;
+        const LOWIENIE_CZAS_MS = 15000;
+        const LOWIENIE_SZEROKOSC = 5;
+
+        let pozycja = 2;
+        let ryba = 0;
+        let zlowione = 0;
+        let koniecLowienia = false;
+        const koniecCzasu = Date.now() + LOWIENIE_CZAS_MS;
+
+        const losujRybe = () => {
+            let nowa;
+            do {
+                nowa = Math.floor(Math.random() * LOWIENIE_SZEROKOSC);
+            } while (nowa === pozycja || nowa === ryba);
+            return nowa;
+        };
+        ryba = losujRybe();
+
+        const rysujJezioro = () => {
+            const pozostaloS = Math.max(0, Math.ceil((koniecCzasu - Date.now()) / 1000));
+            const rzadLodki = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === pozycja ? "🚤" : "🌫️")).join("");
+            const rzadZyłki = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === pozycja ? "🪝" : "🌊")).join("");
+            const rzadRyby = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === ryba ? "🐟" : "🌊")).join("");
+            return `🎣 **Łowienie** - ${interaction.user.username}\nZłap **${LOWIENIE_CEL} ryby** zanim skończy się czas! Najedź hakiem nad rybę i kliknij **Łów**.\n\n${rzadLodki}\n${rzadZyłki}\n${rzadRyby}\n🌊🌊🌊🌊🌊\n\n🐟 Złowione: **${zlowione}/${LOWIENIE_CEL}** | ⏱️ Pozostało: **${pozostaloS}s**`;
+        };
+
+        const przyciskiLowienia = (wylaczone) => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("lowienie_lewo").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(wylaczone),
+            new ButtonBuilder().setCustomId("lowienie_low").setLabel("🎣 Łów").setStyle(ButtonStyle.Success).setDisabled(wylaczone),
+            new ButtonBuilder().setCustomId("lowienie_prawo").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(wylaczone),
+        );
+
+        const wiadomoscLowienia = await interaction.editReply({
+            content: rysujJezioro(),
+            components: [przyciskiLowienia(false)],
+        });
+
+        const collectorLowienia = wiadomoscLowienia.createMessageComponentCollector({
+            filter: (i) => i.user.id === interaction.user.id,
+            time: LOWIENIE_CZAS_MS + 5000,
+        });
+
+        const zakonczLowienie = async (wygrana) => {
+            if (koniecLowienia) return;
+            koniecLowienia = true;
+            clearInterval(interwalZegara);
+            clearTimeout(timeoutLowienia);
+            collectorLowienia.stop();
+
+            if (wygrana) {
+                const nagrodaLowienia = losowaLiczba(1, 10);
+                await addSolidDice(interaction.user.id, interaction.guild.id, nagrodaLowienia);
+                await interaction.editReply({
+                    content: rysujJezioro() + `\n\n🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!`,
+                    components: [przyciskiLowienia(true)],
+                }).catch(() => {});
+            } else {
+                const strata = losowaLiczba(1, 5);
+                const saldo = await getSolidDice(interaction.user.id, interaction.guild.id);
+                const realnaStrata = Math.min(strata, saldo);
+                if (realnaStrata > 0) {
+                    await db.execute({
+                        sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
+                        args: [realnaStrata, interaction.user.id, interaction.guild.id],
+                    });
+                }
+                await interaction.editReply({
+                    content: rysujJezioro() + `\n\n🐟💨 **Ryby uciekły!** Czas minął - złowiłeś ${zlowione}/${LOWIENIE_CEL}. Tracisz **-${realnaStrata}** <:Red_roll:1512521789748547715>.`,
+                    components: [przyciskiLowienia(true)],
+                }).catch(() => {});
+            }
+        };
+
+        const timeoutLowienia = setTimeout(() => zakonczLowienie(false), LOWIENIE_CZAS_MS);
+        const interwalZegara = setInterval(() => {
+            if (!koniecLowienia) interaction.editReply({ content: rysujJezioro(), components: [przyciskiLowienia(false)] }).catch(() => {});
+        }, 3000);
+
+        collectorLowienia.on("collect", async (i) => {
+            try {
+                if (koniecLowienia) {
+                    await i.deferUpdate().catch(() => {});
+                    return;
+                }
+
+                if (i.customId === "lowienie_lewo") pozycja = Math.max(0, pozycja - 1);
+                else if (i.customId === "lowienie_prawo") pozycja = Math.min(LOWIENIE_SZEROKOSC - 1, pozycja + 1);
+                else if (i.customId === "lowienie_low" && pozycja === ryba) {
+                    zlowione++;
+                    if (zlowione >= LOWIENIE_CEL) {
+                        await i.deferUpdate().catch(() => {});
+                        await zakonczLowienie(true);
+                        return;
+                    }
+                    ryba = losujRybe();
+                }
+
+                await i.update({ content: rysujJezioro(), components: [przyciskiLowienia(false)] });
+            } catch (error) {
+                console.error("Błąd w /łowienie:", error);
+            }
+        });
     }
 
     if (interaction.commandName === "roll") {
