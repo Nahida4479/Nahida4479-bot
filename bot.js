@@ -37,6 +37,10 @@ client.once("ready", async () => {
         .setName("kawiarnia")
         .setDescription("Odbierz Solid Dice z kawiarni"),
 
+        new SlashCommandBuilder()
+        .setName("wyscig")
+        .setDescription("Ścigaj się i omijaj przeszkody aby zdobyć Solid Dice"),
+
         // new SlashCommandBuilder()
         // .setName("delivery")
         // .setDescription("Wykonaj dostawę aby odebrać Solid Dice"),
@@ -1334,7 +1338,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyscig"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1395,7 +1399,7 @@ client.on("interactionCreate", async (interaction) => {
                 args: [user.id, interaction.guild.id],
             });
             await db.execute({
-                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie')",
+                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyscig')",
                 args: [user.id, interaction.guild.id]
             });
             await interaction.reply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.`, ephemeral: true });
@@ -1582,6 +1586,113 @@ client.on("interactionCreate", async (interaction) => {
         const row = new ActionRowBuilder().addComponents(btnOdbierz);
 
         await interaction.editReply({ content: "", embeds: [embed], components: [row] });
+    }
+
+    if (interaction.commandName === "wyscig") {
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyscig", 60 * 60 * 1000);
+        if (cooldown) {
+            await interaction.reply({ content: cooldown, ephemeral: true });
+            return;
+        }
+
+        await interaction.deferReply();
+
+        const WYSCIG_TICKI = 5;
+        const WYSCIG_TICK_MS = 1200;
+
+        // tor[t] = pas zajęty przez przeszkodę, która dociera do auta w ticku t (0=lewy, 1=prawy, null=wolna droga).
+        // Wzory bez dwóch przeszkód tick po ticku, żeby dało się zareagować mimo opóźnień Discorda.
+        const tor = new Array(WYSCIG_TICKI + 1).fill(null);
+        const wzoryPrzeszkod = [[2, 4], [1, 3], [3, 5], [1, 4], [2, 5], [1, 3, 5]];
+        const wzor = wzoryPrzeszkod[Math.floor(Math.random() * wzoryPrzeszkod.length)];
+        const emotkiPrzeszkod = {};
+        for (const t of wzor) {
+            tor[t] = Math.floor(Math.random() * 2);
+            emotkiPrzeszkod[t] = Math.random() < 0.5 ? "🚧" : "🪨";
+        }
+
+        let pas = Math.floor(Math.random() * 2);
+        let tick = 0;
+        let rozbity = false;
+        let zakonczony = false;
+
+        const rysujRzad = (lewy, prawy, idx) => `🌴${lewy}${idx % 2 === 0 ? "⬛" : "⬜"}${prawy}🌴`;
+
+        const rysujPlansze = () => {
+            const rzedy = [];
+            for (let d = 4; d >= 1; d--) {
+                const idx = tick + d;
+                let lewy = "⬛", prawy = "⬛";
+                if (idx <= WYSCIG_TICKI && tor[idx] !== null) {
+                    if (tor[idx] === 0) lewy = emotkiPrzeszkod[idx];
+                    else prawy = emotkiPrzeszkod[idx];
+                } else if (idx === WYSCIG_TICKI + 1) {
+                    lewy = "🏁";
+                    prawy = "🏁";
+                }
+                rzedy.push(rysujRzad(lewy, prawy, idx));
+            }
+            const auto = rozbity ? "💥" : "🏎️";
+            rzedy.push(rysujRzad(pas === 0 ? auto : "⬛", pas === 1 ? auto : "⬛", tick));
+            return rzedy.join("\n");
+        };
+
+        const przyciskiWyscigu = (wylaczone) => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("wyscig_lewo").setLabel("⬅️ Lewo").setStyle(ButtonStyle.Primary).setDisabled(wylaczone),
+            new ButtonBuilder().setCustomId("wyscig_prawo").setLabel("➡️ Prawo").setStyle(ButtonStyle.Primary).setDisabled(wylaczone),
+        );
+
+        const naglowekWyscigu = `🏁 **Wyścig** - ${interaction.user.username} | Omijaj przeszkody i dojedź do mety!\n\n`;
+
+        const wiadomoscWyscigu = await interaction.editReply({
+            content: naglowekWyscigu + rysujPlansze(),
+            components: [przyciskiWyscigu(false)],
+        });
+
+        const collectorWyscigu = wiadomoscWyscigu.createMessageComponentCollector({
+            filter: (i) => i.user.id === interaction.user.id,
+            time: (WYSCIG_TICKI + 2) * WYSCIG_TICK_MS + 10000,
+        });
+
+        collectorWyscigu.on("collect", async (i) => {
+            try {
+                if (zakonczony) {
+                    await i.deferUpdate().catch(() => {});
+                    return;
+                }
+                pas = i.customId === "wyscig_lewo" ? 0 : 1;
+                await i.update({ content: naglowekWyscigu + rysujPlansze(), components: [przyciskiWyscigu(false)] });
+            } catch (error) {
+                console.error("Błąd w /wyscig:", error);
+            }
+        });
+
+        for (let t = 1; t <= WYSCIG_TICKI; t++) {
+            await new Promise(r => setTimeout(r, WYSCIG_TICK_MS));
+            tick = t;
+            if (tor[t] !== null && tor[t] === pas) {
+                rozbity = true;
+                break;
+            }
+            await interaction.editReply({ content: naglowekWyscigu + rysujPlansze(), components: [przyciskiWyscigu(false)] }).catch(() => {});
+        }
+
+        zakonczony = true;
+        collectorWyscigu.stop();
+
+        if (rozbity) {
+            await interaction.editReply({
+                content: naglowekWyscigu + rysujPlansze() + "\n\n💥 **Rozbiłeś się!** Nie zdobywasz Solid Dice - spróbuj ponownie za godzinę.",
+                components: [przyciskiWyscigu(true)],
+            }).catch(() => {});
+        } else {
+            const nagrodaWyscigu = losowaLiczba(5, 15);
+            await addSolidDice(interaction.user.id, interaction.guild.id, nagrodaWyscigu);
+            await interaction.editReply({
+                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!`,
+                components: [przyciskiWyscigu(true)],
+            }).catch(() => {});
+        }
     }
 
     if (interaction.commandName === "roll") {
