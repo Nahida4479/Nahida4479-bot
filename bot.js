@@ -769,6 +769,19 @@ const MAMMON_SPAWN_MAX_H = 24;
 const aktywneMammony = new Map();
 const nastepnySpawnMammon = new Map();
 
+const MAMMON_ABILITKI = {
+    dmg50: { nazwa: "💥 Cios Mocy", opis: "Zadaje jednorazowo 50 obrażeń Mammonowi." },
+    blokada5s: { nazwa: "🛡️ Monopol", opis: "Przez 5 sekund tylko Ty możesz atakować Mammona." },
+    czas10s: { nazwa: "⏳ Przedłużenie", opis: "Dodaje +10 sekund do czasu walki dla wszystkich." },
+    blokujUlt: { nazwa: "🔒 Sabotaż", opis: "Blokuje ULT losowemu graczowi na resztę walki." },
+    leczmamona: { nazwa: "🧪 Eliksir Mammona", opis: "Dodaje Mammonowi od 10 do 100 HP (ryzykowna!)." },
+};
+
+function losowaAbilitkaMammona() {
+    const klucze = Object.keys(MAMMON_ABILITKI);
+    return klucze[Math.floor(Math.random() * klucze.length)];
+}
+
 function losowaLiczba(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -787,25 +800,39 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
         .setDescription(
             "📜 **Zasady:**\n" +
             "• Wykonaj **przynajmniej 1 atak** → 30-60 <:Red_roll:1512521789748547715>\n" +
-            "• Wykonaj **przynajmniej 1 ULT** → 60-100 <:Red_roll:1512521789748547715> (zamiast bazowej nagrody)\n\n" +
+            "• Wykonaj **przynajmniej 1 ULT** → 60-100 <:Red_roll:1512521789748547715> (zamiast bazowej nagrody)\n" +
+            "• **TOP 3** graczy z największymi obrażeniami → dodatkowe 30-50 <:Red_roll:1512521789748547715> do nagrody\n\n" +
+            "🎲 **Losowa umiejętność:** po dołączeniu dostajesz jedną z 5 losowych, jednorazowych umiejętności " +
+            "(dodatkowe obrażenia, blokada wroga, więcej czasu, sabotaż ULT innemu graczowi... ale też ryzyko wzmocnienia Mammona!)\n\n" +
             "Kliknij **⚔️ Dołącz**, aby wziąć udział w walce!"
         )
         .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 30 sekund!" : "Dołączanie zamknięte" });
 }
 
 function panelGraczaMammon(stan, gracz) {
+    const info = MAMMON_ABILITKI[gracz.abilitka];
     const embed = new EmbedBuilder()
         .setColor(0x8B0000)
         .setDescription(paskHpMammona(stan.hp, stan.maxHp))
         .addFields(
             { name: "Twoje ataki", value: `${gracz.ataki}`, inline: true },
-            { name: "Dostępne ULT", value: `${gracz.ultyDostepne}`, inline: true },
+            { name: "Dostępne ULT", value: gracz.ultZablokowany ? "🔒 Zablokowane" : `${gracz.ultyDostepne}`, inline: true },
+            { name: "Umiejętność", value: gracz.abilitkaUzyta ? `~~${info.nazwa}~~ (użyta)` : `**${info.nazwa}**\n_${info.opis}_`, inline: false },
         );
 
     const btnAtak = new ButtonBuilder().setCustomId("mammon_atak").setLabel("🗡️ Atak").setStyle(ButtonStyle.Primary);
-    const btnUlt = new ButtonBuilder().setCustomId("mammon_ulta").setLabel("💥 ULT (x3)").setStyle(ButtonStyle.Success).setDisabled(gracz.ultyDostepne <= 0);
+    const btnUlt = new ButtonBuilder()
+        .setCustomId("mammon_ulta")
+        .setLabel(gracz.ultZablokowany ? "🔒 ULT zablokowany" : "💥 ULT (x3)")
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(gracz.ultyDostepne <= 0 || gracz.ultZablokowany);
+    const btnAbilitka = new ButtonBuilder()
+        .setCustomId("mammon_abilitka")
+        .setLabel(gracz.abilitkaUzyta ? "✅ Umiejętność użyta" : `🎲 ${info.nazwa}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(gracz.abilitkaUzyta);
 
-    return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btnAtak, btnUlt)] };
+    return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btnAtak, btnUlt, btnAbilitka)] };
 }
 
 async function aktualizujPublicznaMammona(stan, wymuszona) {
@@ -820,6 +847,9 @@ async function aktualizujPublicznaMammona(stan, wymuszona) {
             .setColor(0x8B0000)
             .setDescription(`${paskHpMammona(stan.hp, stan.maxHp)}\n\n👥 Walczących: ${stan.uczestnicy.size}`);
         if (existsSync(MAMMON_SCIEZKA_OBRAZKA)) embedHp.setImage("attachment://mammon.jpg");
+        if (stan.dziennik.length > 0) {
+            embedHp.addFields({ name: "📜 Ostatnie wydarzenia", value: stan.dziennik.join("\n") });
+        }
         embedy.push(embedHp);
     }
 
@@ -843,18 +873,43 @@ async function zakonczWalkeMammon(guildId, pokonany) {
     clearTimeout(stan.timeoutKoniec);
     aktywneMammony.delete(guildId);
 
+    const listaGraczy = [...stan.uczestnicy.entries()];
+    const rankingObrazen = [...listaGraczy].sort((a, b) => b[1].obrazeniaZadane - a[1].obrazeniaZadane);
+
+    // Bonus TOP 3 liczy się tylko wśród graczy, którzy i tak kwalifikują się do nagrody bazowej
+    // (żeby ktoś kto zadał obrażenia wyłącznie umiejętnością, ale nigdy nie zaatakował/nie użył ULT,
+    // nie zajął miejsca w rankingu kosztem kogoś realnie walczącego)
+    const kwalifikowaniDoNagrody = listaGraczy.filter(([, g]) => g.ataki > 0 || g.ultyUzyte > 0);
+    const rankingBonusowy = [...kwalifikowaniDoNagrody].sort((a, b) => b[1].obrazeniaZadane - a[1].obrazeniaZadane);
+    const top3Ids = new Set(rankingBonusowy.slice(0, 3).filter(([, g]) => g.obrazeniaZadane > 0).map(([id]) => id));
+
     let podsumowanie = "";
     if (pokonany) {
-        for (const [userId, gracz] of stan.uczestnicy) {
+        for (const [userId, gracz] of listaGraczy) {
             let nagroda = 0;
             if (gracz.ultyUzyte > 0) nagroda = losowaLiczba(60, 100);
             else if (gracz.ataki > 0) nagroda = losowaLiczba(30, 60);
+
+            let bonusOpis = "";
+            if (nagroda > 0 && top3Ids.has(userId)) {
+                const bonus = losowaLiczba(30, 50);
+                nagroda += bonus;
+                bonusOpis = ` (w tym +${bonus} 🏆 za TOP 3 obrażeń)`;
+            }
+
             if (nagroda > 0) {
                 await addSolidDice(userId, guildId, nagroda);
-                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>\n`;
+                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonusOpis}\n`;
             }
         }
     }
+
+    const medale = ["🥇", "🥈", "🥉"];
+    const rankingTekst = rankingObrazen
+        .filter(([, g]) => g.obrazeniaZadane > 0)
+        .slice(0, 5)
+        .map(([userId, g], i) => `${medale[i] ?? "▪️"} <@${userId}> - **${g.obrazeniaZadane}** obrażeń`)
+        .join("\n") || "Nikt nie zadał żadnych obrażeń.";
 
     const embed = new EmbedBuilder()
         .setColor(pokonany ? 0x2ECC71 : 0x555555)
@@ -863,7 +918,8 @@ async function zakonczWalkeMammon(guildId, pokonany) {
             pokonany
                 ? (podsumowanie || "Nikt nie zdążył zadać obrażeń.")
                 : "Czas minął zanim ktokolwiek zdołał go pokonać. Spróbujcie przy następnym spawnie!"
-        );
+        )
+        .addFields({ name: "🏆 Ranking obrażeń", value: rankingTekst });
 
     await stan.wiadomosc.edit({ embeds: [embed], components: [] }).catch(() => {});
 }
@@ -882,6 +938,10 @@ async function odpalMammona(guildId, kanal) {
         zakonczone: false,
         obrazekWyslany: false,
         ostatniaAktualizacja: 0,
+        dziennik: [],
+        blokadaAtakuDo: 0,
+        blokadaAtakuGracz: null,
+        czasZakonczeniaWalki: 0,
         regulamin,
         wiadomosc,
     };
@@ -901,6 +961,7 @@ async function odpalMammona(guildId, kanal) {
         }
 
         stan.regulamin = budujRegulaminMammona(false);
+        stan.czasZakonczeniaWalki = Date.now() + MAMMON_CZAS_WALKI_MS;
         await aktualizujPublicznaMammona(stan, true);
         stan.timeoutKoniec = setTimeout(() => zakonczWalkeMammon(guildId, false), MAMMON_CZAS_WALKI_MS);
     }, MAMMON_CZAS_DOLACZANIA_MS);
@@ -932,7 +993,17 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         if (!stan.uczestnicy.has(interaction.user.id)) {
-            stan.uczestnicy.set(interaction.user.id, { ataki: 0, ultyUzyte: 0, ultyDostepne: 0, ostatniAtak: 0, ostatniaUlta: 0 });
+            stan.uczestnicy.set(interaction.user.id, {
+                ataki: 0,
+                ultyUzyte: 0,
+                ultyDostepne: 0,
+                ostatniAtak: 0,
+                ostatniaUlta: 0,
+                obrazeniaZadane: 0,
+                ultZablokowany: false,
+                abilitka: losowaAbilitkaMammona(),
+                abilitkaUzyta: false,
+            });
             const n = stan.uczestnicy.size;
             const nowyMaxHp = MAMMON_HP_BAZA + n * MAMMON_HP_ZA_GRACZA;
             stan.hp += nowyMaxHp - stan.maxHp;
@@ -961,6 +1032,12 @@ client.on("interactionCreate", async (interaction) => {
             return;
         }
 
+        if (stan.blokadaAtakuDo > Date.now() && stan.blokadaAtakuGracz !== interaction.user.id) {
+            const pozostaloBlokady = ((stan.blokadaAtakuDo - Date.now()) / 1000).toFixed(1);
+            await interaction.reply({ content: `❗ <@${stan.blokadaAtakuGracz}> zmonopolizował atak na Mammona! Poczekaj jeszcze ${pozostaloBlokady}s.`, ephemeral: true });
+            return;
+        }
+
         const teraz = Date.now();
 
         if (interaction.customId === "mammon_atak") {
@@ -973,7 +1050,12 @@ client.on("interactionCreate", async (interaction) => {
             gracz.ataki++;
             if (gracz.ataki % 5 === 0) gracz.ultyDostepne++;
             stan.hp = Math.max(0, stan.hp - MAMMON_ATAK_OBRAZENIA);
+            gracz.obrazeniaZadane += MAMMON_ATAK_OBRAZENIA;
         } else {
+            if (gracz.ultZablokowany) {
+                await interaction.reply({ content: "❗ Twoje ULT zostało zablokowane na tę walkę!", ephemeral: true });
+                return;
+            }
             if (gracz.ultyDostepne <= 0) {
                 await interaction.reply({ content: "❗ Nie masz jeszcze dostępnego ULT (potrzeba 5 ataków).", ephemeral: true });
                 return;
@@ -987,6 +1069,7 @@ client.on("interactionCreate", async (interaction) => {
             gracz.ultyDostepne--;
             gracz.ultyUzyte++;
             stan.hp = Math.max(0, stan.hp - MAMMON_ULT_OBRAZENIA);
+            gracz.obrazeniaZadane += MAMMON_ULT_OBRAZENIA;
         }
 
         if (stan.hp <= 0) {
@@ -996,6 +1079,80 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         await aktualizujPublicznaMammona(stan, false);
+        await interaction.update(panelGraczaMammon(stan, gracz));
+        return;
+    }
+
+    if (interaction.customId === "mammon_abilitka") {
+        const stan = aktywneMammony.get(interaction.guild.id);
+        if (!stan || stan.zakonczone) {
+            await interaction.update({ content: "❗ Ta walka z Mammonem już się zakończyła.", embeds: [], components: [] }).catch(() => {});
+            return;
+        }
+
+        const gracz = stan.uczestnicy.get(interaction.user.id);
+        if (!gracz) {
+            await interaction.reply({ content: "❗ Nie dołączyłeś do tej walki!", ephemeral: true });
+            return;
+        }
+        if (gracz.abilitkaUzyta) {
+            await interaction.reply({ content: "❗ Już wykorzystałeś swoją umiejętność w tej walce.", ephemeral: true });
+            return;
+        }
+
+        gracz.abilitkaUzyta = true;
+        const info = MAMMON_ABILITKI[gracz.abilitka];
+        let logWpis = "";
+
+        switch (gracz.abilitka) {
+            case "dmg50": {
+                stan.hp = Math.max(0, stan.hp - 50);
+                gracz.obrazeniaZadane += 50;
+                logWpis = `💥 <@${interaction.user.id}> użył **${info.nazwa}** - Mammon traci 50 HP!`;
+                break;
+            }
+            case "blokada5s": {
+                stan.blokadaAtakuDo = Date.now() + 5000;
+                stan.blokadaAtakuGracz = interaction.user.id;
+                logWpis = `🛡️ <@${interaction.user.id}> użył **${info.nazwa}** - przez 5 sekund tylko on może atakować Mammona!`;
+                break;
+            }
+            case "czas10s": {
+                if (stan.timeoutKoniec) {
+                    clearTimeout(stan.timeoutKoniec);
+                    const pozostaloDoKonca = stan.czasZakonczeniaWalki - Date.now() + 10000;
+                    stan.czasZakonczeniaWalki += 10000;
+                    stan.timeoutKoniec = setTimeout(() => zakonczWalkeMammon(interaction.guild.id, false), pozostaloDoKonca);
+                }
+                logWpis = `⏳ <@${interaction.user.id}> użył **${info.nazwa}** - wszyscy dostają +10 sekund na pokonanie Mammona!`;
+                break;
+            }
+            case "blokujUlt": {
+                const uczestnicyLista = [...stan.uczestnicy.entries()];
+                const [celId, celGracz] = uczestnicyLista[Math.floor(Math.random() * uczestnicyLista.length)];
+                celGracz.ultZablokowany = true;
+                logWpis = `🔒 <@${interaction.user.id}> użył **${info.nazwa}** - <@${celId}> ma zablokowanego ULT na resztę starcia!`;
+                break;
+            }
+            case "leczmamona": {
+                const ile = losowaLiczba(10, 100);
+                stan.maxHp += ile;
+                stan.hp += ile;
+                logWpis = `🧪 <@${interaction.user.id}> użył **${info.nazwa}** - Mammon odzyskuje +${ile} HP!`;
+                break;
+            }
+        }
+
+        stan.dziennik.push(logWpis);
+        if (stan.dziennik.length > 5) stan.dziennik.shift();
+
+        if (stan.hp <= 0) {
+            await interaction.update({ content: "💀 Zadałeś ostateczny cios!", embeds: [], components: [] }).catch(() => {});
+            await zakonczWalkeMammon(interaction.guild.id, true);
+            return;
+        }
+
+        await aktualizujPublicznaMammona(stan, true);
         await interaction.update(panelGraczaMammon(stan, gracz));
         return;
     }
