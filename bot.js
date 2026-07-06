@@ -122,7 +122,11 @@ client.once("ready", async () => {
 
         new SlashCommandBuilder()
         .setName("animacje")
-        .setDescription("Włącz lub wyłącz animacje")
+        .setDescription("Włącz lub wyłącz animacje"),
+
+        new SlashCommandBuilder()
+        .setName("help")
+        .setDescription("Poradnik komend ekonomii - nagrody, straty, cooldowny i wideo"),
 
 
 
@@ -1003,6 +1007,115 @@ async function odpalMammona(guildId, kanal) {
 function losowyOdstepSpawnuMammona() {
     const godziny = MAMMON_SPAWN_MIN_H + Math.random() * (MAMMON_SPAWN_MAX_H - MAMMON_SPAWN_MIN_H);
     return godziny * 60 * 60 * 1000;
+}
+
+// ===== /help =====
+
+const HELP_STRONY = [
+    {
+        komenda: "/daily",
+        plik: "daily",
+        opis: "Odbierz codzienną nagrodę Solid Dice.",
+        zdobywasz: "10-14 Solid Dice",
+        tracisz: "Nie dotyczy",
+        cooldown: "24 godziny",
+    },
+    {
+        komenda: "/work",
+        plik: "work",
+        opis: "Idź do pracy i zarób Solid Dice.",
+        zdobywasz: "5-9 Solid Dice",
+        tracisz: "Nie dotyczy",
+        cooldown: "2 godziny",
+    },
+    {
+        komenda: "/pinkpawsheist",
+        plik: "pinkpawsheist",
+        opis: "Weź udział w napadzie Pink Paws Heist - 50% szans na sukces, 50% na porażkę.",
+        zdobywasz: "1-30 Solid Dice (sukces, 50% szans)",
+        tracisz: "1-30 Solid Dice (porażka, 50% szans - nigdy więcej niż masz)",
+        cooldown: "48 godzin",
+    },
+    {
+        komenda: "/kawiarnia",
+        plik: "kawiarnia",
+        opis: "Kawiarnia produkuje Solid Dice co godzinę - odbierz zgromadzoną ilość, kiedy chcesz.",
+        zdobywasz: "1 Solid Dice za każdą pełną godzinę od ostatniego odbioru (magazyn max 48)",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak - można sprawdzać w każdej chwili",
+    },
+    {
+        komenda: "/wyscig",
+        plik: "wyscig",
+        opis: "Prowadź samochód i omijaj przeszkody przez 5 ticków, żeby dojechać do mety.",
+        zdobywasz: "5-15 Solid Dice (dojazd do mety)",
+        tracisz: "Nie tracisz Solid Dice - rozbicie kończy grę po prostu bez nagrody",
+        cooldown: "1 godzina",
+    },
+    {
+        komenda: "/łowienie",
+        plik: "lowienie",
+        opis: "Steruj łódką i złap 3 ryby zanim skończy się czas.",
+        zdobywasz: "1-10 Solid Dice (złowienie 3 ryb w 20 sekund)",
+        tracisz: "1-5 Solid Dice (jeśli czas minie zanim złowisz 3 ryby)",
+        cooldown: "10 minut",
+    },
+    {
+        komenda: "/roll",
+        plik: "roll",
+        opis: "Wylosuj 10 przedmiotów - postacie, itemy do wymiany i czasem dodatkowe Solid Dice.",
+        zdobywasz: "Przedmioty, postacie i losowo dodatkowe Solid Dice (np. 5x Solid Dice = +5)",
+        tracisz: "Koszt 10 Solid Dice za każde użycie",
+        cooldown: "Brak - ograniczone tylko posiadanym saldem",
+    },
+    {
+        komenda: "/majong",
+        plik: "majong",
+        opis: "Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób.",
+        zdobywasz: "30-50 Solid Dice za dokończenie partii, dodatkowe +50 za wygraną",
+        tracisz: "Nie dotyczy - w najgorszym razie nie dostajesz nagrody (remis, partia przerwana)",
+        cooldown: "1 godzina (dla osoby zakładającej grę)",
+    },
+    {
+        komenda: "/skiny",
+        plik: "skiny",
+        opis: "Kup skiny postaci w sklepie i pokaż się w /plecak w zakładce Skiny.",
+        zdobywasz: "Kosmetyczny skin na stałe",
+        tracisz: "Koszt 100 Solid Dice za skin",
+        cooldown: "Brak",
+    },
+    {
+        komenda: "😈 Event: Mammon",
+        plik: "mammon",
+        opis: "Mammon respi się sam z siebie na kanale ustawionym w /ntegra i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
+        zdobywasz: "30-60 Solid Dice (przynajmniej 1 atak) lub 60-100 (przynajmniej 1 ULT) po pokonaniu Mammona, plus dodatkowe 30-50 dla TOP 3 graczy z największymi obrażeniami",
+        tracisz: "Nie dotyczy",
+        cooldown: "Mammon pojawia się sam z siebie co 12-24 godzin (losowo) na serwer",
+    },
+];
+
+function budujStroneHelp(indeks) {
+    const strona = HELP_STRONY[indeks];
+    const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(strona.komenda)
+        .setDescription(strona.opis)
+        .addFields(
+            { name: "💰 Zdobywasz", value: strona.zdobywasz },
+            { name: "💸 Możesz stracić", value: strona.tracisz },
+            { name: "⏱️ Cooldown", value: strona.cooldown },
+        )
+        .setFooter({ text: `Strona ${indeks + 1}/${HELP_STRONY.length}` });
+
+    const sciezkaWideo = `./Gra/video/${strona.plik}.mp4`;
+    const pliki = [];
+    if (existsSync(sciezkaWideo)) {
+        pliki.push(new AttachmentBuilder(sciezkaWideo, { name: `${strona.plik}.mp4` }));
+    } else {
+        embed.addFields({ name: "🎥 Wideo", value: "Wkrótce dodane" });
+    }
+
+    return { embeds: [embed], files: pliki };
 }
 
 client.on("interactionCreate", async (interaction) => {
@@ -2304,6 +2417,49 @@ if (interaction.commandName === "animacje") {
         );
 
     await interaction.reply({ embeds: [embed], components: [rowRoll, rowKawiarnia], ephemeral: true });
+}
+
+if (interaction.commandName === "help") {
+    let aktualnaStronaHelp = 0;
+
+    const przyciskiHelp = () => new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId("help_poprzednia").setLabel("Poprzednia").setStyle(ButtonStyle.Primary).setDisabled(aktualnaStronaHelp === 0),
+        new ButtonBuilder().setCustomId("help_nastepna").setLabel("Następna").setStyle(ButtonStyle.Primary).setDisabled(aktualnaStronaHelp === HELP_STRONY.length - 1),
+    );
+
+    const poczatkowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
+    const wiadomoscHelp = await interaction.reply({
+        embeds: poczatkowaStronaHelp.embeds,
+        files: poczatkowaStronaHelp.files,
+        components: [przyciskiHelp()],
+        ephemeral: true,
+        fetchReply: true,
+    });
+
+    const collectorHelp = wiadomoscHelp.createMessageComponentCollector({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 300000,
+    });
+
+    collectorHelp.on("collect", async (i) => {
+        try {
+            if (i.customId === "help_poprzednia") aktualnaStronaHelp--;
+            else if (i.customId === "help_nastepna") aktualnaStronaHelp++;
+
+            const nowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
+            await i.update({
+                embeds: nowaStronaHelp.embeds,
+                files: nowaStronaHelp.files,
+                components: [przyciskiHelp()],
+            });
+        } catch (error) {
+            console.error("Błąd w /help:", error);
+        }
+    });
+
+    collectorHelp.on("end", () => {
+        wiadomoscHelp.edit({ components: [] }).catch(() => {});
+    });
 }
     } catch (error) {
         console.error("Błąd w interactionCreate:", error);
