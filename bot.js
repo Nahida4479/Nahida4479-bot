@@ -1079,7 +1079,7 @@ const HELP_STRONY = [
     {
         komenda: "/skiny",
         plik: "skiny",
-        opis: "Kup skiny postaci w sklepie i pokaż się w /plecak w zakładce Skiny.",
+        opis: "Kup skiny postaci w sklepie, możesz je wyświetlić w /plecak w zakładce Skiny.",
         zdobywasz: "Kosmetyczny skin na stałe",
         tracisz: "Koszt 100 Solid Dice za skin",
         cooldown: "Brak",
@@ -1095,7 +1095,7 @@ const HELP_STRONY = [
     {
         komenda: "😈 Event: Mammon",
         plik: "mammon",
-        opis: "Mammon respi się sam z siebie na kanale ustawionym w /ntegra i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
+        opis: "Mammon respi się sam z siebie na kanale ekonomii i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
         zdobywasz: "30-60 Solid Dice (przynajmniej 1 atak) lub 60-100 (przynajmniej 1 ULT) po pokonaniu Mammona, plus dodatkowe 30-50 dla TOP 3 graczy z największymi obrażeniami",
         tracisz: "Nie dotyczy",
         cooldown: "Mammon pojawia się sam z siebie co 12-24 godzin (losowo) na serwer",
@@ -2180,7 +2180,7 @@ if (interaction.commandName === "plecak") {
         if (i.customId === "szukaj_postac") {
             const modal = new ModalBuilder()
                 .setCustomId("plecak_szukaj_modal")
-                .setTitle("Szukaj postaci")
+                .setTitle("Wyszukaj postać")
                 .addComponents(
                     new ActionRowBuilder().addComponents(
                         new TextInputBuilder()
