@@ -773,7 +773,7 @@ const MAMMON_ABILITKI = {
     dmg50: { nazwa: "💥 Cios Mocy", opis: "Zadaje jednorazowo 50 obrażeń Mammonowi." },
     blokada5s: { nazwa: "🛡️ Monopol", opis: "Przez 5 sekund tylko Ty możesz atakować Mammona." },
     czas10s: { nazwa: "⏳ Przedłużenie", opis: "Dodaje +10 sekund do czasu walki dla wszystkich." },
-    blokujUlt: { nazwa: "🔒 Sabotaż", opis: "Blokuje ULT losowemu graczowi na resztę walki." },
+    blokujUlt: { nazwa: "🔒 Sabotaż", opis: "Blokada ULT-a losowemu graczowi na czas bicia mammona." },
     leczmamona: { nazwa: "🧪 Eliksir Mammona", opis: "Dodaje Mammonowi od 10 do 100 HP (ryzykowna!)." },
 };
 
@@ -802,8 +802,7 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
             "• Wykonaj **przynajmniej 1 atak** → 30-60 <:Red_roll:1512521789748547715>\n" +
             "• Wykonaj **przynajmniej 1 ULT** → 60-100 <:Red_roll:1512521789748547715> (zamiast bazowej nagrody)\n" +
             "• **TOP 3** graczy z największymi obrażeniami → dodatkowe 30-50 <:Red_roll:1512521789748547715> do nagrody\n\n" +
-            "🎲 **Losowa umiejętność:** po dołączeniu dostajesz jedną z 5 losowych, jednorazowych umiejętności " +
-            "(dodatkowe obrażenia, blokada wroga, więcej czasu, sabotaż ULT innemu graczowi... ale też ryzyko wzmocnienia Mammona!)\n\n" +
+            "🎲 **Losowa umiejętność:** po dołączeniu dostajesz jedną z 5 losowych, jednorazowych umiejętności\n\n" +
             "Kliknij **⚔️ Dołącz**, aby wziąć udział w walce!"
         )
         .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 30 sekund!" : "Dołączanie zamknięte" });
@@ -813,17 +812,16 @@ function panelGraczaMammon(stan, gracz) {
     const info = MAMMON_ABILITKI[gracz.abilitka];
     const embed = new EmbedBuilder()
         .setColor(0x8B0000)
-        .setDescription(paskHpMammona(stan.hp, stan.maxHp))
         .addFields(
             { name: "Twoje ataki", value: `${gracz.ataki}`, inline: true },
-            { name: "Dostępne ULT", value: gracz.ultZablokowany ? "🔒 Zablokowane" : `${gracz.ultyDostepne}`, inline: true },
+            { name: "Wykorzystane ULT-y", value: gracz.ultZablokowany ? "🔒 Zablokowane" : `${gracz.ultyUzyte}`, inline: true },
             { name: "Umiejętność", value: gracz.abilitkaUzyta ? `~~${info.nazwa}~~ (użyta)` : `**${info.nazwa}**\n_${info.opis}_`, inline: false },
         );
 
     const btnAtak = new ButtonBuilder().setCustomId("mammon_atak").setLabel("🗡️ Atak").setStyle(ButtonStyle.Primary);
     const btnUlt = new ButtonBuilder()
         .setCustomId("mammon_ulta")
-        .setLabel(gracz.ultZablokowany ? "🔒 ULT zablokowany" : "💥 ULT (x3)")
+        .setLabel(gracz.ultZablokowany ? "🔒 ULT zablokowany" : "💥 ULT")
         .setStyle(ButtonStyle.Success)
         .setDisabled(gracz.ultyDostepne <= 0 || gracz.ultZablokowany);
     const btnAbilitka = new ButtonBuilder()
@@ -1012,10 +1010,7 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         const gracz = stan.uczestnicy.get(interaction.user.id);
-        const panel = panelGraczaMammon(stan, gracz);
-        const pliki = existsSync(MAMMON_SCIEZKA_OBRAZKA) ? [new AttachmentBuilder(MAMMON_SCIEZKA_OBRAZKA, { name: "mammon.jpg" })] : [];
-        if (pliki.length > 0) panel.embeds[0].setImage("attachment://mammon.jpg");
-        await interaction.reply({ ...panel, files: pliki, ephemeral: true });
+        await interaction.reply({ ...panelGraczaMammon(stan, gracz), ephemeral: true });
         return;
     }
 
