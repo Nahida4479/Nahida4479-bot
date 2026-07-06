@@ -1063,7 +1063,7 @@ const HELP_STRONY = [
     {
         komenda: "/roll",
         plik: "roll",
-        opis: "Wylosuj 10 przedmiotów - postacie, itemy do wymiany i czasem dodatkowe Solid Dice.",
+        opis: "Wylosuj 10 przedmiotów np. postacie, dodatkowe Solid Dice.",
         zdobywasz: "Przedmioty, postacie i losowo dodatkowe Solid Dice (np. 5x Solid Dice = +5)",
         tracisz: "Koszt 10 Solid Dice za każde użycie",
         cooldown: "Brak - ograniczone tylko posiadanym saldem",
