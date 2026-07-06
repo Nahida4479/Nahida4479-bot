@@ -1833,7 +1833,7 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const LOWIENIE_CEL = 3;
-        const LOWIENIE_CZAS_MS = 20000;
+        const LOWIENIE_CZAS_MS = 25000;
         const LOWIENIE_SZEROKOSC = 5;
 
         let pozycja = 2;
