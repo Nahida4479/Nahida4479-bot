@@ -8,7 +8,33 @@ import { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, Butto
 const KOLORY = ["Z", "K", "B"];
 const NAZWY_KOLOROW = { Z: "Znaki", K: "Kropki", B: "Bambusy" };
 const EMOTKI_KOLOROW = { Z: "🟥", K: "🟨", B: "🟩" };
-const NAZWA_KLOCKA = (t) => `${t[1]} ${NAZWY_KOLOROW[t[0]]} ${EMOTKI_KOLOROW[t[0]]}`;
+const ODMIANY_KOLOROW = {
+    Z: ["Znak", "Znaki", "Znaków"],
+    K: ["Kropka", "Kropki", "Kropek"],
+    B: ["Bambus", "Bambusy", "Bambusów"],
+};
+
+// "1 Znak", "3 Znaki", "6 Znaków" - poprawna polska odmiana po liczebniku
+function etykietaKlocka(t) {
+    const cyfra = Number(t[1]);
+    const odmiana = cyfra === 1 ? 0 : cyfra <= 4 ? 1 : 2;
+    return `${cyfra} ${ODMIANY_KOLOROW[t[0]][odmiana]}`;
+}
+
+// Jeśli serwer ma wgraną emotkę o nazwie mjZ1..mjB9 - używamy jej zamiast kolorowego kwadratu
+function emotkaKlocka(gra, t) {
+    const wlasna = gra?.guild?.emojis?.cache?.find(e => e.name === `mj${t}`);
+    return wlasna ? wlasna.toString() : EMOTKI_KOLOROW[t[0]];
+}
+
+function nazwaZEmotka(gra, t) {
+    return `${etykietaKlocka(t)} ${emotkaKlocka(gra, t)}`;
+}
+
+function emojiDlaMenu(gra, t) {
+    const wlasna = gra?.guild?.emojis?.cache?.find(e => e.name === `mj${t}`);
+    return wlasna ? { id: wlasna.id } : EMOTKI_KOLOROW[t[0]];
+}
 
 const MAJONG_CZAS_TURY_MS = 30000;
 const MAJONG_CZAS_DOLACZANIA_MS = 30000;
@@ -233,7 +259,7 @@ function embedZasad() {
         );
 }
 
-function opcjeOdrzutu(gracz) {
+function opcjeOdrzutu(gra, gracz) {
     const zakazane = gracz.reka.filter(k => k[0] === gracz.kolorZakazany);
     const doWyboru = zakazane.length > 0 ? zakazane : gracz.reka;
     const widziane = new Set();
@@ -242,14 +268,14 @@ function opcjeOdrzutu(gracz) {
         const k = gracz.reka[i];
         if (!doWyboru.includes(k) || widziane.has(k)) continue;
         widziane.add(k);
-        opcje.push({ label: NAZWA_KLOCKA(k).replace(/🟥|🟨|🟩/g, "").trim(), value: k, emoji: EMOTKI_KOLOROW[k[0]] });
+        opcje.push({ label: etykietaKlocka(k), value: k, emoji: emojiDlaMenu(gra, k) });
     }
     return opcje.slice(0, 25);
 }
 
-function tekstMeldow(gracz) {
+function tekstMeldow(gra, gracz) {
     if (gracz.melds.length === 0) return "brak";
-    return gracz.melds.map(m => `${m.typ === "kong" ? "Kong" : "Pung"} ${NAZWA_KLOCKA(m.klocek)}`).join(", ");
+    return gracz.melds.map(m => `${m.typ === "kong" ? "Kong" : "Pung"} ${nazwaZEmotka(gra, m.klocek)}`).join(", ");
 }
 
 async function pokazPanel(gracz, gra, tresc, komponenty) {
@@ -260,7 +286,7 @@ async function pokazPanel(gracz, gra, tresc, komponenty) {
         .setColor(0x1B5E20)
         .setDescription(tresc)
         .addFields(
-            { name: "Twoje układy", value: tekstMeldow(gracz), inline: true },
+            { name: "Twoje układy", value: tekstMeldow(gra, gracz), inline: true },
             { name: "Kolor zakazany", value: gracz.kolorZakazany ? `${EMOTKI_KOLOROW[gracz.kolorZakazany]} ${NAZWY_KOLOROW[gracz.kolorZakazany]}` : "jeszcze nie wybrany", inline: true },
         )
         .setImage("attachment://reka.png");
@@ -295,7 +321,7 @@ async function aktualizujStol(gra, wymuszona) {
         .addFields(
             { name: "Gracze", value: gra.gracze.map((g, i) => `${i === gra.tura ? "▶️" : "▫️"} ${g.bot ? g.nazwa : `<@${g.id}>`}${g.kolorZakazany ? ` (bez ${EMOTKI_KOLOROW[g.kolorZakazany]})` : ""} - układy: ${g.melds.length}`).join("\n") },
             { name: "Mur", value: `${gra.mur.length} klocków`, inline: true },
-            { name: "Ostatni odrzut", value: gra.ostatniOdrzut ? `${NAZWA_KLOCKA(gra.ostatniOdrzut.klocek)} (${gra.ostatniOdrzut.nazwa})` : "brak", inline: true },
+            { name: "Ostatni odrzut", value: gra.ostatniOdrzut ? `${nazwaZEmotka(gra, gra.ostatniOdrzut.klocek)} (${gra.ostatniOdrzut.nazwa})` : "brak", inline: true },
         );
 
     const zawartosc = { embeds: [embed], components: [] };
@@ -321,7 +347,7 @@ async function fazaWymiany(gra) {
             for (const k of gracz.reka) {
                 const n = (uzyte.get(k) ?? 0);
                 uzyte.set(k, n + 1);
-                opcje.push({ label: `${NAZWA_KLOCKA(k).replace(/🟥|🟨|🟩/g, "").trim()}${n > 0 ? ` (${n + 1})` : ""}`, value: `${k}_${n}`, emoji: EMOTKI_KOLOROW[k[0]] });
+                opcje.push({ label: `${etykietaKlocka(k)}${n > 0 ? ` (${n + 1})` : ""}`, value: `${k}_${n}`, emoji: emojiDlaMenu(gra, k) });
             }
             const menu = new StringSelectMenuBuilder().setCustomId("mj_wymiana").setPlaceholder("Wybierz 3 klocki JEDNEGO koloru do oddania").setMinValues(3).setMaxValues(3).addOptions(opcje.slice(0, 25));
             await pokazPanel(gracz, gra, "🔄 **Wymiana:** oddaj 3 klocki **jednego koloru** następnemu graczowi.\nPodpowiedź: najlepiej pozbyć się koloru, którego masz najmniej.", [new ActionRowBuilder().addComponents(menu)]);
@@ -421,14 +447,14 @@ async function turaGracza(gra, gracz, poPrzejeciu) {
     } else {
         while (true) {
             const komponenty = [new ActionRowBuilder().addComponents(
-                new StringSelectMenuBuilder().setCustomId("mj_odrzut").setPlaceholder("Wybierz klocek do odrzucenia").addOptions(opcjeOdrzutu(gracz))
+                new StringSelectMenuBuilder().setCustomId("mj_odrzut").setPlaceholder("Wybierz klocek do odrzucenia").addOptions(opcjeOdrzutu(gra, gracz))
             )];
             kong = mozliwyKongZReki(gracz);
             if (kong) komponenty.push(new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId("mj_kong").setLabel(`💠 Kong: ${NAZWA_KLOCKA(kong.klocek).replace(/🟥|🟨|🟩/g, "").trim()}`).setStyle(ButtonStyle.Success)
+                new ButtonBuilder().setCustomId("mj_kong").setLabel(`💠 Kong: ${etykietaKlocka(kong.klocek)}`).setStyle(ButtonStyle.Success)
             ));
 
-            const info = gracz.ostatnioDobrany ? `Dobrałeś: **${NAZWA_KLOCKA(gracz.ostatnioDobrany)}**\n` : "";
+            const info = gracz.ostatnioDobrany ? `Dobrałeś: **${nazwaZEmotka(gra, gracz.ostatnioDobrany)}**\n` : "";
             const musiszZakazany = gracz.reka.some(k => k[0] === gracz.kolorZakazany) ? `⚠️ Masz klocki zakazanego koloru - musisz odrzucać najpierw je!\n` : "";
             await pokazPanel(gracz, gra, `▶️ **Twoja tura!** ${info}${musiszZakazany}Wybierz klocek do odrzucenia (${MAJONG_CZAS_TURY_MS / 1000}s).`, komponenty);
 
@@ -452,7 +478,7 @@ async function turaGracza(gra, gracz, poPrzejeciu) {
     gra.odrzucone.push(odrzut);
     gra.ostatniOdrzut = { klocek: odrzut, nazwa: gracz.nazwa, gracz };
     gracz.ostatnioDobrany = null;
-    if (!gracz.bot) await pokazPanel(gracz, gra, `Odrzuciłeś **${NAZWA_KLOCKA(odrzut)}**. Czekaj na swoją turę...`, []);
+    if (!gracz.bot) await pokazPanel(gracz, gra, `Odrzuciłeś **${nazwaZEmotka(gra, odrzut)}**. Czekaj na swoją turę...`, []);
     await aktualizujStol(gra, false);
 
     // Ron - automatyczny (priorytet nad Pung/Kong)
@@ -479,7 +505,7 @@ async function turaGracza(gra, gracz, poPrzejeciu) {
             const przyciski = [new ButtonBuilder().setCustomId("mj_pung").setLabel("✊ Pung").setStyle(ButtonStyle.Success)];
             if (kopie >= 3) przyciski.push(new ButtonBuilder().setCustomId("mj_kongclaim").setLabel("💠 Kong").setStyle(ButtonStyle.Success));
             przyciski.push(new ButtonBuilder().setCustomId("mj_pas").setLabel("Pas").setStyle(ButtonStyle.Secondary));
-            await pokazPanel(inny, gra, `❕ ${gracz.nazwa} odrzucił **${NAZWA_KLOCKA(odrzut)}** - możesz go przejąć! (${MAJONG_CZAS_PRZEJECIA_MS / 1000}s)`, [new ActionRowBuilder().addComponents(przyciski)]);
+            await pokazPanel(inny, gra, `❕ ${gracz.nazwa} odrzucił **${nazwaZEmotka(gra, odrzut)}** - możesz go przejąć! (${MAJONG_CZAS_PRZEJECIA_MS / 1000}s)`, [new ActionRowBuilder().addComponents(przyciski)]);
             const akcja = await czekajNaAkcje(inny, ["mj_pung", "mj_kongclaim", "mj_pas"], MAJONG_CZAS_PRZEJECIA_MS);
             if (akcja?.customId === "mj_pung") decyzja = "pung";
             else if (akcja?.customId === "mj_kongclaim") decyzja = "kong";
@@ -555,7 +581,7 @@ async function zakonczGre(gra, wynik, deps) {
     if (wynik.zwyciezca) {
         sortujReke(wynik.zwyciezca.reka);
         embed.setImage("attachment://reka.png");
-        embed.addFields({ name: "Zwycięska ręka", value: tekstMeldow(wynik.zwyciezca) === "brak" ? "wszystko z ręki" : `+ ${tekstMeldow(wynik.zwyciezca)}` });
+        embed.addFields({ name: "Zwycięska ręka", value: tekstMeldow(gra, wynik.zwyciezca) === "brak" ? "wszystko z ręki" : `+ ${tekstMeldow(gra, wynik.zwyciezca)}` });
         zawartosc.files = [new AttachmentBuilder(await obrazekReki(wynik.zwyciezca.reka), { name: "reka.png" })];
     }
     await gra.wiadomoscStolu.edit(zawartosc).catch(() => {});
@@ -634,6 +660,7 @@ export async function rozpocznijMajong(interaction, deps) {
 
                 const gra = {
                     guildId: interaction.guild.id,
+                    guild: interaction.guild,
                     gracze: [],
                     mur: [],
                     tura: 0,
@@ -705,4 +732,4 @@ export async function rozpocznijMajong(interaction, deps) {
     });
 }
 
-export const _test = { nowyMur, czyWygrywajaca, dekompozycja, wybierzOdrzut, najmniejszyKolorZ3, najmniejszyKolor, policzKlocki, svgKafelka, mozliwyKongZReki, nowyGracz };
+export const _test = { nowyMur, czyWygrywajaca, dekompozycja, wybierzOdrzut, najmniejszyKolorZ3, najmniejszyKolor, policzKlocki, svgKafelka, mozliwyKongZReki, nowyGracz, etykietaKlocka, nazwaZEmotka };
