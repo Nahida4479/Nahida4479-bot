@@ -1146,6 +1146,11 @@ client.on("interactionCreate", async (interaction) => {
             return;
         }
 
+        // Ackujemy natychmiast, zanim zrobimy jakąkolwiek wolniejszą pracę (edycja
+        // publicznej wiadomości to zapytanie sieciowe do Discorda) - inaczej 3-sekundowe
+        // okno na potwierdzenie kliknięcia może minąć i Discord pokaże "Unknown interaction"
+        await interaction.deferReply({ ephemeral: true });
+
         if (!stan.uczestnicy.has(interaction.user.id)) {
             stan.uczestnicy.set(interaction.user.id, {
                 ataki: 0,
@@ -1167,7 +1172,7 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         const gracz = stan.uczestnicy.get(interaction.user.id);
-        await interaction.reply({ ...panelGraczaMammon(stan, gracz), ephemeral: true });
+        await interaction.editReply(panelGraczaMammon(stan, gracz));
         return;
     }
 
@@ -1228,14 +1233,19 @@ client.on("interactionCreate", async (interaction) => {
             cooldownUzytyMs = MAMMON_COOLDOWN_ULT_MS;
         }
 
+        // Ackujemy natychmiast (deferUpdate jest lokalny i szybki) - dopiero PO tym
+        // robimy wolniejszą edycję publicznej wiadomości, żeby nie przekroczyć
+        // 3-sekundowego okna Discorda na potwierdzenie kliknięcia
+        await interaction.deferUpdate().catch(() => {});
+
         if (stan.hp <= 0) {
-            await interaction.update({ content: "💀 Zadałeś ostateczny cios!", embeds: [], components: [] }).catch(() => {});
             await zakonczWalkeMammon(interaction.guild.id, true);
+            await interaction.editReply({ content: "💀 Zadałeś ostateczny cios!", embeds: [], components: [] }).catch(() => {});
             return;
         }
 
         await aktualizujPublicznaMammona(stan, false);
-        await interaction.update(panelGraczaMammon(stan, gracz));
+        await interaction.editReply(panelGraczaMammon(stan, gracz)).catch(() => {});
 
         setTimeout(async () => {
             if (stan.zakonczone) return;
@@ -1312,14 +1322,19 @@ client.on("interactionCreate", async (interaction) => {
         stan.dziennik.push(logWpis);
         if (stan.dziennik.length > 5) stan.dziennik.shift();
 
+        // Ackujemy natychmiast (deferUpdate jest lokalny i szybki) - dopiero PO tym
+        // robimy wolniejszą edycję publicznej wiadomości, żeby nie przekroczyć
+        // 3-sekundowego okna Discorda na potwierdzenie kliknięcia
+        await interaction.deferUpdate().catch(() => {});
+
         if (stan.hp <= 0) {
-            await interaction.update({ content: "💀 Zadałeś ostateczny cios!", embeds: [], components: [] }).catch(() => {});
             await zakonczWalkeMammon(interaction.guild.id, true);
+            await interaction.editReply({ content: "💀 Zadałeś ostateczny cios!", embeds: [], components: [] }).catch(() => {});
             return;
         }
 
         await aktualizujPublicznaMammona(stan, true);
-        await interaction.update(panelGraczaMammon(stan, gracz));
+        await interaction.editReply(panelGraczaMammon(stan, gracz)).catch(() => {});
         return;
     }
 
@@ -1328,6 +1343,7 @@ client.on("interactionCreate", async (interaction) => {
         const akcja = czesci[1];
         const animacja = czesci[2];
         const wartosc = akcja === "wlacz" ? 1 : 0;
+        await interaction.deferReply({ ephemeral: true });
         const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
         let nowyRoll = obecne.animacja_roll;
         let nowyPlecak = obecne.animacja_plecak;
@@ -1345,7 +1361,7 @@ client.on("interactionCreate", async (interaction) => {
             args: [interaction.user.id, interaction.guild.id, nowyRoll, nowyPlecak, nowaKawiarnia, nowyRoll, nowyPlecak, nowaKawiarnia],
         });
         const komunikat = akcja === "wlacz" ? "✅ Animacja została włączona!" : "❌ Animacja została wyłączona!";
-        await interaction.reply({ content: komunikat, ephemeral: true });
+        await interaction.editReply({ content: komunikat });
         return;
     }
 
@@ -1356,10 +1372,12 @@ client.on("interactionCreate", async (interaction) => {
             return;
         }
 
+        await interaction.deferUpdate().catch(() => {});
+
         const { dostepne } = await odbierzKawiarnie(interaction.user.id, interaction.guild.id);
 
         if (dostepne <= 0) {
-            await interaction.reply({ content: "❗ Nie masz jeszcze nic do odebrania z kawiarni! Wróć za jakiś czas.", ephemeral: true });
+            await interaction.followUp({ content: "❗ Nie masz jeszcze nic do odebrania z kawiarni! Wróć za jakiś czas.", ephemeral: true }).catch(() => {});
             return;
         }
 
@@ -1369,8 +1387,8 @@ client.on("interactionCreate", async (interaction) => {
             .setStyle(ButtonStyle.Success)
             .setDisabled(true);
 
-        await interaction.update({ components: [new ActionRowBuilder().addComponents(btnOdebrane)] });
-        await interaction.followUp({ content: `☕ Odebrałeś **${dostepne} Solid Dice** <:Red_roll:1512521789748547715>!`, ephemeral: true });
+        await interaction.editReply({ components: [new ActionRowBuilder().addComponents(btnOdebrane)] }).catch(() => {});
+        await interaction.followUp({ content: `☕ Odebrałeś **${dostepne} Solid Dice** <:Red_roll:1512521789748547715>!`, ephemeral: true }).catch(() => {});
         return;
     }
 
@@ -1475,9 +1493,11 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "daily") {
+        await interaction.deferReply();
+
         const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", 24 * 60 * 60 *1000);
         if (cooldown) {
-            await interaction.reply({ content: cooldown, ephemeral: true});
+            await interaction.editReply({ content: cooldown });
             return;
         }
         const ilosc = Math.floor(Math.random() * 5) + 10;
@@ -1500,12 +1520,14 @@ client.on("interactionCreate", async (interaction) => {
             .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>`})
             .setThumbnail("attachment://Red_roll.jpg")
 
-        await interaction.reply({ embeds: [embed], files: [obrazek]});
+        await interaction.editReply({ embeds: [embed], files: [obrazek]});
     }
 
     if (interaction.commandName === "removecooldown") {
+        await interaction.deferReply({ ephemeral: true });
+
         if (!(await czyAdministratorBota(interaction))) {
-            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            await interaction.editReply({ content: "❗ Nie masz uprawnień" });
             return;
         }
 
@@ -1518,7 +1540,7 @@ client.on("interactionCreate", async (interaction) => {
                 sql: "DELETE FROM cooldown_bypass WHERE user_id = ? AND guild_id = ?",
                 args: [user.id, interaction.guild.id],
             });
-            await interaction.reply({ content: `✅ Cooldowny wróciły do normy dla ${user}.`, ephemeral: true });
+            await interaction.editReply({ content: `✅ Cooldowny wróciły do normy dla ${user}.` });
         } else {
             await db.execute({
                 sql: "INSERT INTO cooldown_bypass (user_id, guild_id) VALUES (?, ?)",
@@ -1528,13 +1550,15 @@ client.on("interactionCreate", async (interaction) => {
                 sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyscig', 'majong')",
                 args: [user.id, interaction.guild.id]
             });
-            await interaction.reply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.`, ephemeral: true });
+            await interaction.editReply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.` });
         }
     }
 
     if (interaction.commandName === "administracja") {
+        await interaction.deferReply({ ephemeral: true });
+
         if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator) && !OWNER_IDS.includes(interaction.user.id)) {
-            await interaction.reply({ content: "❗ Tylko osoby z uprawnieniem Administrator mogą ustawiać rolę zarządzającą botem.", ephemeral: true });
+            await interaction.editReply({ content: "❗ Tylko osoby z uprawnieniem Administrator mogą ustawiać rolę zarządzającą botem." });
             return;
         }
 
@@ -1545,12 +1569,14 @@ client.on("interactionCreate", async (interaction) => {
             args: [interaction.guild.id, rola.id, rola.id],
         });
 
-        await interaction.reply({ content: `✅ Rola ${rola} może teraz używać \`/ntegra\` i \`/removecooldown\`.`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Rola ${rola} może teraz używać \`/ntegra\` i \`/removecooldown\`.` });
     }
 
     if (interaction.commandName === "ntegra") {
+        await interaction.deferReply({ ephemeral: true });
+
         if (!(await czyAdministratorBota(interaction))) {
-            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            await interaction.editReply({ content: "❗ Nie masz uprawnień" });
             return;
         }
 
@@ -1561,12 +1587,14 @@ client.on("interactionCreate", async (interaction) => {
             args: [interaction.guild.id, kanal.id, kanal.id],
         });
 
-        await interaction.reply({ content: `✅ Kanał ekonomii ustawiony na ${kanal}.`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Kanał ekonomii ustawiony na ${kanal}.` });
     }
 
     if (interaction.commandName === "addskin") {
+        await interaction.deferReply({ ephemeral: true });
+
         if (!OWNER_IDS.includes(interaction.user.id)) {
-            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            await interaction.editReply({ content: "❗ Nie masz uprawnień" });
             return;
         }
 
@@ -1574,7 +1602,7 @@ client.on("interactionCreate", async (interaction) => {
         const nazwa = interaction.options.getString("nazwa").trim();
 
         if (!existsSync(`./Gra/skins/${plik}`)) {
-            await interaction.reply({ content: `❗ Nie znaleziono pliku \`Gra/skins/${plik}\`. Wgraj plik na serwer przed dodaniem skina.`, ephemeral: true });
+            await interaction.editReply({ content: `❗ Nie znaleziono pliku \`Gra/skins/${plik}\`. Wgraj plik na serwer przed dodaniem skina.` });
             return;
         }
 
@@ -1583,17 +1611,19 @@ client.on("interactionCreate", async (interaction) => {
             args: [plik, nazwa, nazwa],
         });
 
-        await interaction.reply({ content: `✅ Skin **${nazwa}** (\`${plik}\`) jest teraz dostępny w \`/skiny\`.`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Skin **${nazwa}** (\`${plik}\`) jest teraz dostępny w \`/skiny\`.` });
     }
 
     if (interaction.commandName === "mammonevent") {
+        await interaction.deferReply({ ephemeral: true });
+
         if (!(await czyAdministratorBota(interaction))) {
-            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            await interaction.editReply({ content: "❗ Nie masz uprawnień" });
             return;
         }
 
         if (aktywneMammony.has(interaction.guild.id)) {
-            await interaction.reply({ content: "❗ Mammon już jest aktywny na tym serwerze!", ephemeral: true });
+            await interaction.editReply({ content: "❗ Mammon już jest aktywny na tym serwerze!" });
             return;
         }
 
@@ -1603,28 +1633,30 @@ client.on("interactionCreate", async (interaction) => {
         });
         const kanalId = ustawieniaSerwera.rows[0]?.kanal_id;
         if (!kanalId) {
-            await interaction.reply({ content: "❗ Najpierw ustaw kanał komendą /ntegra.", ephemeral: true });
+            await interaction.editReply({ content: "❗ Najpierw ustaw kanał komendą /ntegra." });
             return;
         }
 
         const kanal = await interaction.guild.channels.fetch(kanalId).catch(() => null);
         if (!kanal) {
-            await interaction.reply({ content: "❗ Nie mogę znaleźć skonfigurowanego kanału. Ustaw go ponownie przez /ntegra.", ephemeral: true });
+            await interaction.editReply({ content: "❗ Nie mogę znaleźć skonfigurowanego kanału. Ustaw go ponownie przez /ntegra." });
             return;
         }
 
         await odpalMammona(interaction.guild.id, kanal);
-        await interaction.reply({ content: `✅ Mammon przywołany na ${kanal}!`, ephemeral: true });
+        await interaction.editReply({ content: `✅ Mammon przywołany na ${kanal}!` });
     }
 
     if (interaction.commandName === "nteleaderboard") {
+        await interaction.deferReply();
+
         const wynik = await db.execute ({
             sql: "SELECT user_id, solid_dice_total FROM ekonomia WHERE guild_id = ? ORDER BY solid_dice_total DESC LIMIT 10",
             args: [interaction.guild.id],
         });
 
         if (wynik.rows.length === 0) {
-            await interaction.reply({ content: "❗ Brak danych w rankingu", ephemeral: true});
+            await interaction.editReply({ content: "❗ Brak danych w rankingu" });
             return;
         }
 
@@ -1636,13 +1668,15 @@ client.on("interactionCreate", async (interaction) => {
             .setTitle("🏆 Ranking Solid Dice")
             .setDescription(lista);
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     }
 
     if (interaction.commandName === "work") {
+        await interaction.deferReply();
+
         const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", 2 * 60 * 60  * 1000);
         if (cooldown) {
-            await interaction.reply ({ content: cooldown, ephemeral: true});
+            await interaction.editReply({ content: cooldown });
             return;
         }
 
@@ -1678,7 +1712,7 @@ client.on("interactionCreate", async (interaction) => {
             .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>`}) 
             .setThumbnail("attachment://Red_roll.jpg")
 
-        await interaction.reply({ embeds: [embed], files: [obrazek] });
+        await interaction.editReply({ embeds: [embed], files: [obrazek] });
     }
 
     if (interaction.commandName === "kawiarnia") {
@@ -1715,13 +1749,13 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "wyscig") {
+        await interaction.deferReply();
+
         const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyscig", 60 * 60 * 1000);
         if (cooldown) {
-            await interaction.reply({ content: cooldown, ephemeral: true });
+            await interaction.editReply({ content: cooldown });
             return;
         }
-
-        await interaction.deferReply();
 
         const WYSCIG_TICKI = 5;
         const WYSCIG_TICK_MS = 1200;
@@ -1822,9 +1856,11 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "majong") {
+        await interaction.deferReply();
+
         const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "majong", 60 * 60 * 1000);
         if (cooldown) {
-            await interaction.reply({ content: cooldown, ephemeral: true });
+            await interaction.editReply({ content: cooldown });
             return;
         }
         await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba });
@@ -1832,13 +1868,13 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.commandName === "łowienie") {
+        await interaction.deferReply();
+
         const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", 10 * 60 * 1000);
         if (cooldown) {
-            await interaction.reply({ content: cooldown, ephemeral: true });
+            await interaction.editReply({ content: cooldown });
             return;
         }
-
-        await interaction.deferReply();
 
         const LOWIENIE_CEL = 3;
         const LOWIENIE_CZAS_MS = 25000;
@@ -2326,9 +2362,11 @@ if (interaction.commandName === "skiny") {
 }
 
 if (interaction.commandName === "pinkpawsheist") {
+    await interaction.deferReply();
+
     const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", 48 * 60 * 60 * 1000);
     if (cooldown) {
-        await interaction.reply({ content: cooldown, ephemeral: true });
+        await interaction.editReply({ content: cooldown });
         return;
     }
 
@@ -2351,7 +2389,7 @@ if (interaction.commandName === "pinkpawsheist") {
             .setDescription(wiadomosc)
             .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>` });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
 
     } else {
         const portfel = await db.execute({
@@ -2381,11 +2419,13 @@ if (interaction.commandName === "pinkpawsheist") {
             .setDescription(wiadomosc)
             .addFields({ name: "Straciłeś/aś", value: `**-${realnaStrata} Solid Dice** <:Red_roll:1512521789748547715>` });
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
     }
 }
 
 if (interaction.commandName === "animacje") {
+    await interaction.deferReply({ ephemeral: true });
+
     const obecne = await getUstawienia(interaction.user.id, interaction.guild.id);
 
     const statusRoll = obecne.animacja_roll === 1 ? "✅ Włączona" : "❌ Wyłączona";
@@ -2424,7 +2464,7 @@ if (interaction.commandName === "animacje") {
             // { name: "🔄 Animacja Wymiana", value: statusWymiana },
         );
 
-    await interaction.reply({ embeds: [embed], components: [rowRoll, rowKawiarnia], ephemeral: true });
+    await interaction.editReply({ embeds: [embed], components: [rowRoll, rowKawiarnia] });
 }
 
 if (interaction.commandName === "help") {

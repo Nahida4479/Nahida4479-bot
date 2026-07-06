@@ -719,7 +719,7 @@ export async function rozpocznijMajong(interaction, deps) {
         new ButtonBuilder().setCustomId("mj_solo").setLabel("🤖 Solo (z botami)").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("mj_multi").setLabel("👥 Multiplayer").setStyle(ButtonStyle.Success),
     );
-    const wiadomosc = await interaction.reply({ embeds: [embedZasad()], components: [rzadTrybow], fetchReply: true });
+    const wiadomosc = await interaction.editReply({ embeds: [embedZasad()], components: [rzadTrybow] });
 
     const kolektorTrybu = wiadomosc.createMessageComponentCollector({ time: 60000 });
     let trybWybrany = false;
