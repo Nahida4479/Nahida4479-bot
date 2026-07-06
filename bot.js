@@ -1115,10 +1115,11 @@ function budujStroneHelp(indeks) {
         )
         .setFooter({ text: `Strona ${indeks + 1}/${HELP_STRONY.length}` });
 
-    const sciezkaWideo = `./Gra/video/${strona.plik}.mp4`;
+    const sciezkaGif = `./Gra/video/${strona.plik}.gif`;
     const pliki = [];
-    if (existsSync(sciezkaWideo)) {
-        pliki.push(new AttachmentBuilder(sciezkaWideo, { name: `${strona.plik}.mp4` }));
+    if (existsSync(sciezkaGif)) {
+        pliki.push(new AttachmentBuilder(sciezkaGif, { name: `${strona.plik}.gif` }));
+        embed.setImage(`attachment://${strona.plik}.gif`);
     } else {
         embed.addFields({ name: "🎥 Wideo", value: "Wkrótce dodane" });
     }
