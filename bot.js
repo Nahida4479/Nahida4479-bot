@@ -755,11 +755,11 @@ async function getUstawienia(userId, guildId) {
 // Mammon - event bossa
 
 const MAMMON_SCIEZKA_OBRAZKA = "./Gra/mammon/mammon.jpg";
-const MAMMON_HP_BAZA = 150;
-const MAMMON_HP_ZA_GRACZA = 130;
+const MAMMON_HP_BAZA = 400;
+const MAMMON_HP_ZA_GRACZA = 350;
 const MAMMON_ATAK_OBRAZENIA = 10;
 const MAMMON_ULT_OBRAZENIA = MAMMON_ATAK_OBRAZENIA * 3;
-const MAMMON_COOLDOWN_ATAK_MS = 3000;
+const MAMMON_COOLDOWN_ATAK_MS = 1000;
 const MAMMON_COOLDOWN_ULT_MS = 10000;
 const MAMMON_CZAS_DOLACZANIA_MS = 30000;
 const MAMMON_CZAS_WALKI_MS = 60000;
@@ -811,18 +811,21 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
 
 function panelGraczaMammon(stan, gracz) {
     const info = MAMMON_ABILITKI[gracz.abilitka];
+    const naCooldownieAtaku = Date.now() - gracz.ostatniAtak < MAMMON_COOLDOWN_ATAK_MS;
+    const naCooldownieUlt = Date.now() - gracz.ostatniaUlta < MAMMON_COOLDOWN_ULT_MS;
+
     const embed = new EmbedBuilder()
         .setColor(0x8B0000)
         .addFields(
             { name: "Umiejętność", value: gracz.abilitkaUzyta ? `~~${info.nazwa}~~ (użyta)` : `**${info.nazwa}**\n_${info.opis}_`, inline: false },
         );
 
-    const btnAtak = new ButtonBuilder().setCustomId("mammon_atak").setLabel("🗡️ Atak").setStyle(ButtonStyle.Primary);
+    const btnAtak = new ButtonBuilder().setCustomId("mammon_atak").setLabel("🗡️ Atak").setStyle(ButtonStyle.Primary).setDisabled(naCooldownieAtaku);
     const btnUlt = new ButtonBuilder()
         .setCustomId("mammon_ulta")
         .setLabel(gracz.ultZablokowany ? "🔒 ULT zablokowany" : "💥 ULT")
         .setStyle(ButtonStyle.Success)
-        .setDisabled(gracz.ultyDostepne <= 0 || gracz.ultZablokowany);
+        .setDisabled(gracz.ultyDostepne <= 0 || gracz.ultZablokowany || naCooldownieUlt);
     const btnAbilitka = new ButtonBuilder()
         .setCustomId("mammon_abilitka")
         .setLabel(gracz.abilitkaUzyta ? "✅ Umiejętność użyta" : `🎲 ${info.nazwa}`)
@@ -1059,6 +1062,7 @@ client.on("interactionCreate", async (interaction) => {
         }
 
         const teraz = Date.now();
+        let cooldownUzytyMs = 0;
 
         if (interaction.customId === "mammon_atak") {
             const pozostalo = MAMMON_COOLDOWN_ATAK_MS - (teraz - gracz.ostatniAtak);
@@ -1071,6 +1075,7 @@ client.on("interactionCreate", async (interaction) => {
             if (gracz.ataki % 5 === 0) gracz.ultyDostepne++;
             stan.hp = Math.max(0, stan.hp - MAMMON_ATAK_OBRAZENIA);
             gracz.obrazeniaZadane += MAMMON_ATAK_OBRAZENIA;
+            cooldownUzytyMs = MAMMON_COOLDOWN_ATAK_MS;
         } else {
             if (gracz.ultZablokowany) {
                 await interaction.reply({ content: "❗ Twoje ULT zostało zablokowane na tę walkę!", ephemeral: true });
@@ -1090,6 +1095,7 @@ client.on("interactionCreate", async (interaction) => {
             gracz.ultyUzyte++;
             stan.hp = Math.max(0, stan.hp - MAMMON_ULT_OBRAZENIA);
             gracz.obrazeniaZadane += MAMMON_ULT_OBRAZENIA;
+            cooldownUzytyMs = MAMMON_COOLDOWN_ULT_MS;
         }
 
         if (stan.hp <= 0) {
@@ -1100,6 +1106,15 @@ client.on("interactionCreate", async (interaction) => {
 
         await aktualizujPublicznaMammona(stan, false);
         await interaction.update(panelGraczaMammon(stan, gracz));
+
+        setTimeout(async () => {
+            if (stan.zakonczone) return;
+            const wciazGracz = stan.uczestnicy.get(interaction.user.id);
+            if (!wciazGracz) return;
+            try {
+                await interaction.editReply(panelGraczaMammon(stan, wciazGracz));
+            } catch {}
+        }, cooldownUzytyMs);
         return;
     }
 
