@@ -1725,9 +1725,9 @@ client.on("interactionCreate", async (interaction) => {
 
         const rysujJezioro = () => {
             const pozostaloS = Math.max(0, Math.ceil((koniecCzasu - Date.now()) / 1000));
-            const rzadLodki = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === pozycja ? "🚤" : "🌫️")).join("");
+            const rzadLodki = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === pozycja ? "<:ShinkuStare:1523709064910213221>" : "🌫️")).join("");
             const rzadZyłki = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === pozycja ? "🪝" : "🌊")).join("");
-            const rzadRyby = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === ryba ? "🐟" : "🌊")).join("");
+            const rzadRyby = Array.from({ length: LOWIENIE_SZEROKOSC }, (_, i) => (i === ryba ? "<:ryba:1523710391614439425>" : "🌊")).join("");
             return `🎣 **Łowienie** - ${interaction.user.username}\nZłap **${LOWIENIE_CEL} ryby** zanim skończy się czas! Najedź hakiem nad rybę i kliknij **Łów**.\n\n${rzadLodki}\n${rzadZyłki}\n${rzadRyby}\n🌊🌊🌊🌊🌊\n\n🐟 Złowione: **${zlowione}/${LOWIENIE_CEL}** | ⏱️ Pozostało: **${pozostaloS}s**`;
         };
 
