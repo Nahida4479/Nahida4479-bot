@@ -801,7 +801,8 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
             "📜 **Zasady:**\n" +
             "• Wykonaj **przynajmniej 1 atak** → 30-60 <:Red_roll:1512521789748547715>\n" +
             "• Wykonaj **przynajmniej 1 ULT** → 60-100 <:Red_roll:1512521789748547715> (zamiast bazowej nagrody)\n" +
-            "• **TOP 3** graczy z największymi obrażeniami → dodatkowe 30-50 <:Red_roll:1512521789748547715> do nagrody\n\n" +
+            "• **TOP 3** graczy z największymi obrażeniami → dodatkowe 30-50 <:Red_roll:1512521789748547715> do nagrody\n" +
+            `• Cooldown ataku: **${MAMMON_COOLDOWN_ATAK_MS / 1000}s** | Cooldown ULT: **${MAMMON_COOLDOWN_ULT_MS / 1000}s**\n\n` +
             "🎲 **Losowa umiejętność:** po dołączeniu dostajesz jedną z 5 losowych, jednorazowych umiejętności\n\n" +
             "Kliknij **⚔️ Dołącz**, aby wziąć udział w walce!"
         )
@@ -899,7 +900,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
 
             if (nagroda > 0) {
                 await addSolidDice(userId, guildId, nagroda);
-                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} 🏆 za TOP 3 obrażeń)` : ""}\n`;
+                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} <:Red_roll:1512521789748547715> za TOP 3 obrażeń)` : ""}\n`;
             }
         }
 
@@ -1062,7 +1063,7 @@ client.on("interactionCreate", async (interaction) => {
         if (interaction.customId === "mammon_atak") {
             const pozostalo = MAMMON_COOLDOWN_ATAK_MS - (teraz - gracz.ostatniAtak);
             if (pozostalo > 0) {
-                await interaction.reply({ content: `⏳ Poczekaj jeszcze ${(pozostalo / 1000).toFixed(1)}s przed kolejnym atakiem.`, ephemeral: true });
+                await interaction.deferUpdate().catch(() => {});
                 return;
             }
             gracz.ostatniAtak = teraz;
@@ -1081,7 +1082,7 @@ client.on("interactionCreate", async (interaction) => {
             }
             const pozostalo = MAMMON_COOLDOWN_ULT_MS - (teraz - gracz.ostatniaUlta);
             if (pozostalo > 0) {
-                await interaction.reply({ content: `⏳ ULT jeszcze się ładuje (${(pozostalo / 1000).toFixed(1)}s).`, ephemeral: true });
+                await interaction.deferUpdate().catch(() => {});
                 return;
             }
             gracz.ostatniaUlta = teraz;
