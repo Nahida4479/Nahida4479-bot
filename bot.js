@@ -92,6 +92,10 @@ client.once("ready", async () => {
             opt.setName("nazwa").setDescription("Nazwa postaci wyświetlana w /skiny").setRequired(true)
         ),
 
+        new SlashCommandBuilder()
+        .setName("mammonevent")
+        .setDescription("[Administracja bota] Natychmiast przywołaj Mammona na kanale ustawionym w /ntegra"),
+
         // new SlashCommandBuilder()
         // .setName("wymiana")
         // .setDescription("Wymień itemy na Solid Dice")
@@ -117,6 +121,31 @@ client.once("ready", async () => {
 
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log("Komendy zarejestrowane")
+
+    setInterval(async () => {
+        try {
+            const serweryWynik = await db.execute("SELECT guild_id, kanal_id FROM serwery WHERE kanal_id IS NOT NULL");
+            const teraz = Date.now();
+
+            for (const row of serweryWynik.rows) {
+                const guildId = row.guild_id;
+
+                if (!nastepnySpawnMammon.has(guildId)) {
+                    nastepnySpawnMammon.set(guildId, teraz + losowyOdstepSpawnuMammona());
+                    continue;
+                }
+
+                if (teraz < nastepnySpawnMammon.get(guildId) || aktywneMammony.has(guildId)) continue;
+
+                nastepnySpawnMammon.set(guildId, teraz + losowyOdstepSpawnuMammona());
+
+                const kanal = await client.channels.fetch(row.kanal_id).catch(() => null);
+                if (kanal) await odpalMammona(guildId, kanal);
+            }
+        } catch (err) {
+            console.error("Błąd harmonogramu Mammona:", err);
+        }
+    }, 10 * 60 * 1000);
 });
 
 client.login(process.env.token_bot);
@@ -723,6 +752,165 @@ async function getUstawienia(userId, guildId) {
     };
 }
 
+// Mammon - event bossa
+
+const MAMMON_SCIEZKA_OBRAZKA = "./Gra/mammon/mammon.jpg";
+const MAMMON_HP_BAZA = 150;
+const MAMMON_HP_ZA_GRACZA = 130;
+const MAMMON_ATAK_OBRAZENIA = 10;
+const MAMMON_ULT_OBRAZENIA = MAMMON_ATAK_OBRAZENIA * 3;
+const MAMMON_COOLDOWN_ATAK_MS = 3000;
+const MAMMON_COOLDOWN_ULT_MS = 10000;
+const MAMMON_CZAS_DOLACZANIA_MS = 30000;
+const MAMMON_CZAS_WALKI_MS = 60000;
+const MAMMON_SPAWN_MIN_H = 12;
+const MAMMON_SPAWN_MAX_H = 24;
+
+const aktywneMammony = new Map();
+const nastepnySpawnMammon = new Map();
+
+function losowaLiczba(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function paskHpMammona(hp, maxHp) {
+    const dlugosc = 20;
+    const procent = maxHp > 0 ? Math.max(0, hp) / maxHp : 0;
+    const wypelnione = Math.round(procent * dlugosc);
+    return `\`[${"█".repeat(wypelnione)}${"░".repeat(dlugosc - wypelnione)}]\` **${Math.max(0, hp)}/${maxHp} HP**`;
+}
+
+function budujRegulaminMammona(dolaczanieOtwarte) {
+    return new EmbedBuilder()
+        .setColor(0x8B0000)
+        .setTitle("😈 Mammon się pojawił!")
+        .setDescription(
+            "📜 **Zasady:**\n" +
+            "• Wykonaj **przynajmniej 1 atak** → 30-60 <:Red_roll:1512521789748547715>\n" +
+            "• Wykonaj **przynajmniej 1 ULT** → 60-100 <:Red_roll:1512521789748547715> (zamiast bazowej nagrody)\n\n" +
+            "Kliknij **⚔️ Dołącz**, aby wziąć udział w walce!"
+        )
+        .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 30 sekund!" : "Dołączanie zamknięte" });
+}
+
+function panelGraczaMammon(stan, gracz) {
+    const embed = new EmbedBuilder()
+        .setColor(0x8B0000)
+        .setDescription(paskHpMammona(stan.hp, stan.maxHp))
+        .addFields(
+            { name: "Twoje ataki", value: `${gracz.ataki}`, inline: true },
+            { name: "Dostępne ULT", value: `${gracz.ultyDostepne}`, inline: true },
+        );
+
+    const btnAtak = new ButtonBuilder().setCustomId("mammon_atak").setLabel("🗡️ Atak").setStyle(ButtonStyle.Primary);
+    const btnUlt = new ButtonBuilder().setCustomId("mammon_ulta").setLabel("💥 ULT (x3)").setStyle(ButtonStyle.Success).setDisabled(gracz.ultyDostepne <= 0);
+
+    return { embeds: [embed], components: [new ActionRowBuilder().addComponents(btnAtak, btnUlt)] };
+}
+
+async function aktualizujPublicznaMammona(stan, wymuszona) {
+    const teraz = Date.now();
+    if (!wymuszona && teraz - stan.ostatniaAktualizacja < 1200) return;
+    stan.ostatniaAktualizacja = teraz;
+
+    const embedy = [stan.regulamin];
+
+    if (stan.uczestnicy.size > 0) {
+        const embedHp = new EmbedBuilder()
+            .setColor(0x8B0000)
+            .setDescription(`${paskHpMammona(stan.hp, stan.maxHp)}\n\n👥 Walczących: ${stan.uczestnicy.size}`);
+        if (existsSync(MAMMON_SCIEZKA_OBRAZKA)) embedHp.setImage("attachment://mammon.jpg");
+        embedy.push(embedHp);
+    }
+
+    const zawartosc = { embeds: embedy };
+    if (!stan.obrazekWyslany && existsSync(MAMMON_SCIEZKA_OBRAZKA)) {
+        zawartosc.files = [new AttachmentBuilder(MAMMON_SCIEZKA_OBRAZKA, { name: "mammon.jpg" })];
+        stan.obrazekWyslany = true;
+    }
+    zawartosc.components = stan.dolaczanieOtwarte
+        ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("mammon_dolacz").setLabel("⚔️ Dołącz").setStyle(ButtonStyle.Danger))]
+        : [];
+
+    await stan.wiadomosc.edit(zawartosc).catch(() => {});
+}
+
+async function zakonczWalkeMammon(guildId, pokonany) {
+    const stan = aktywneMammony.get(guildId);
+    if (!stan || stan.zakonczone) return;
+    stan.zakonczone = true;
+    clearTimeout(stan.timeoutDolaczania);
+    clearTimeout(stan.timeoutKoniec);
+    aktywneMammony.delete(guildId);
+
+    let podsumowanie = "";
+    if (pokonany) {
+        for (const [userId, gracz] of stan.uczestnicy) {
+            let nagroda = 0;
+            if (gracz.ultyUzyte > 0) nagroda = losowaLiczba(60, 100);
+            else if (gracz.ataki > 0) nagroda = losowaLiczba(30, 60);
+            if (nagroda > 0) {
+                await addSolidDice(userId, guildId, nagroda);
+                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>\n`;
+            }
+        }
+    }
+
+    const embed = new EmbedBuilder()
+        .setColor(pokonany ? 0x2ECC71 : 0x555555)
+        .setTitle(pokonany ? "💀 Mammon został pokonany!" : "🏃 Mammon uciekł!")
+        .setDescription(
+            pokonany
+                ? (podsumowanie || "Nikt nie zdążył zadać obrażeń.")
+                : "Czas minął zanim ktokolwiek zdołał go pokonać. Spróbujcie przy następnym spawnie!"
+        );
+
+    await stan.wiadomosc.edit({ embeds: [embed], components: [] }).catch(() => {});
+}
+
+async function odpalMammona(guildId, kanal) {
+    const regulamin = budujRegulaminMammona(true);
+    const btnDolacz = new ButtonBuilder().setCustomId("mammon_dolacz").setLabel("⚔️ Dołącz").setStyle(ButtonStyle.Danger);
+
+    const wiadomosc = await kanal.send({ embeds: [regulamin], components: [new ActionRowBuilder().addComponents(btnDolacz)] });
+
+    const stan = {
+        hp: 0,
+        maxHp: 0,
+        uczestnicy: new Map(),
+        dolaczanieOtwarte: true,
+        zakonczone: false,
+        obrazekWyslany: false,
+        ostatniaAktualizacja: 0,
+        regulamin,
+        wiadomosc,
+    };
+    aktywneMammony.set(guildId, stan);
+
+    stan.timeoutDolaczania = setTimeout(async () => {
+        stan.dolaczanieOtwarte = false;
+
+        if (stan.uczestnicy.size === 0) {
+            stan.zakonczone = true;
+            aktywneMammony.delete(guildId);
+            await stan.wiadomosc.edit({
+                embeds: [budujRegulaminMammona(false).setDescription("😴 Nikt nie dołączył do walki. Mammon wraca do ukrycia...")],
+                components: [],
+            }).catch(() => {});
+            return;
+        }
+
+        stan.regulamin = budujRegulaminMammona(false);
+        await aktualizujPublicznaMammona(stan, true);
+        stan.timeoutKoniec = setTimeout(() => zakonczWalkeMammon(guildId, false), MAMMON_CZAS_WALKI_MS);
+    }, MAMMON_CZAS_DOLACZANIA_MS);
+}
+
+function losowyOdstepSpawnuMammona() {
+    const godziny = MAMMON_SPAWN_MIN_H + Math.random() * (MAMMON_SPAWN_MAX_H - MAMMON_SPAWN_MIN_H);
+    return godziny * 60 * 60 * 1000;
+}
+
 client.on("interactionCreate", async (interaction) => {
     try {
     if (!interaction.guild) return;
@@ -733,6 +921,82 @@ client.on("interactionCreate", async (interaction) => {
             content: `# 📊 Rzadkości:\n\n<:Mint:1523097622187999365> **Legendarna**\n<:Nanallyyy:1523097616722952345> **Epicka** \n<:MintShock:1523097608548257824> **Rzadka**\n<:f_mc:1523097583726231563> **Zwykła**`,
             ephemeral: true,
         });
+        return;
+    }
+
+       if (interaction.customId === "mammon_dolacz") {
+        const stan = aktywneMammony.get(interaction.guild.id);
+        if (!stan || !stan.dolaczanieOtwarte) {
+            await interaction.reply({ content: "❗ Dołączanie do tej walki jest już zamknięte.", ephemeral: true });
+            return;
+        }
+
+        if (!stan.uczestnicy.has(interaction.user.id)) {
+            stan.uczestnicy.set(interaction.user.id, { ataki: 0, ultyUzyte: 0, ultyDostepne: 0, ostatniAtak: 0, ostatniaUlta: 0 });
+            const n = stan.uczestnicy.size;
+            const nowyMaxHp = MAMMON_HP_BAZA + n * MAMMON_HP_ZA_GRACZA;
+            stan.hp += nowyMaxHp - stan.maxHp;
+            stan.maxHp = nowyMaxHp;
+            await aktualizujPublicznaMammona(stan, true);
+        }
+
+        const gracz = stan.uczestnicy.get(interaction.user.id);
+        const panel = panelGraczaMammon(stan, gracz);
+        const pliki = existsSync(MAMMON_SCIEZKA_OBRAZKA) ? [new AttachmentBuilder(MAMMON_SCIEZKA_OBRAZKA, { name: "mammon.jpg" })] : [];
+        if (pliki.length > 0) panel.embeds[0].setImage("attachment://mammon.jpg");
+        await interaction.reply({ ...panel, files: pliki, ephemeral: true });
+        return;
+    }
+
+    if (interaction.customId === "mammon_atak" || interaction.customId === "mammon_ulta") {
+        const stan = aktywneMammony.get(interaction.guild.id);
+        if (!stan || stan.zakonczone) {
+            await interaction.update({ content: "❗ Ta walka z Mammonem już się zakończyła.", embeds: [], components: [] }).catch(() => {});
+            return;
+        }
+
+        const gracz = stan.uczestnicy.get(interaction.user.id);
+        if (!gracz) {
+            await interaction.reply({ content: "❗ Nie dołączyłeś do tej walki!", ephemeral: true });
+            return;
+        }
+
+        const teraz = Date.now();
+
+        if (interaction.customId === "mammon_atak") {
+            const pozostalo = MAMMON_COOLDOWN_ATAK_MS - (teraz - gracz.ostatniAtak);
+            if (pozostalo > 0) {
+                await interaction.reply({ content: `⏳ Poczekaj jeszcze ${(pozostalo / 1000).toFixed(1)}s przed kolejnym atakiem.`, ephemeral: true });
+                return;
+            }
+            gracz.ostatniAtak = teraz;
+            gracz.ataki++;
+            if (gracz.ataki % 5 === 0) gracz.ultyDostepne++;
+            stan.hp = Math.max(0, stan.hp - MAMMON_ATAK_OBRAZENIA);
+        } else {
+            if (gracz.ultyDostepne <= 0) {
+                await interaction.reply({ content: "❗ Nie masz jeszcze dostępnego ULT (potrzeba 5 ataków).", ephemeral: true });
+                return;
+            }
+            const pozostalo = MAMMON_COOLDOWN_ULT_MS - (teraz - gracz.ostatniaUlta);
+            if (pozostalo > 0) {
+                await interaction.reply({ content: `⏳ ULT jeszcze się ładuje (${(pozostalo / 1000).toFixed(1)}s).`, ephemeral: true });
+                return;
+            }
+            gracz.ostatniaUlta = teraz;
+            gracz.ultyDostepne--;
+            gracz.ultyUzyte++;
+            stan.hp = Math.max(0, stan.hp - MAMMON_ULT_OBRAZENIA);
+        }
+
+        if (stan.hp <= 0) {
+            await interaction.update({ content: "💀 Zadałeś ostateczny cios!", embeds: [], components: [] }).catch(() => {});
+            await zakonczWalkeMammon(interaction.guild.id, true);
+            return;
+        }
+
+        await aktualizujPublicznaMammona(stan, false);
+        await interaction.update(panelGraczaMammon(stan, gracz));
         return;
     }
 
@@ -997,6 +1261,37 @@ client.on("interactionCreate", async (interaction) => {
         });
 
         await interaction.reply({ content: `✅ Skin **${nazwa}** (\`${plik}\`) jest teraz dostępny w \`/skiny\`.`, ephemeral: true });
+    }
+
+    if (interaction.commandName === "mammonevent") {
+        if (!(await czyAdministratorBota(interaction))) {
+            await interaction.reply({ content: "❗ Nie masz uprawnień", ephemeral: true });
+            return;
+        }
+
+        if (aktywneMammony.has(interaction.guild.id)) {
+            await interaction.reply({ content: "❗ Mammon już jest aktywny na tym serwerze!", ephemeral: true });
+            return;
+        }
+
+        const ustawieniaSerwera = await db.execute({
+            sql: "SELECT kanal_id FROM serwery WHERE guild_id = ?",
+            args: [interaction.guild.id],
+        });
+        const kanalId = ustawieniaSerwera.rows[0]?.kanal_id;
+        if (!kanalId) {
+            await interaction.reply({ content: "❗ Najpierw ustaw kanał komendą /ntegra.", ephemeral: true });
+            return;
+        }
+
+        const kanal = await interaction.guild.channels.fetch(kanalId).catch(() => null);
+        if (!kanal) {
+            await interaction.reply({ content: "❗ Nie mogę znaleźć skonfigurowanego kanału. Ustaw go ponownie przez /ntegra.", ephemeral: true });
+            return;
+        }
+
+        await odpalMammona(interaction.guild.id, kanal);
+        await interaction.reply({ content: `✅ Mammon przywołany na ${kanal}!`, ephemeral: true });
     }
 
     if (interaction.commandName === "nteleaderboard") {
