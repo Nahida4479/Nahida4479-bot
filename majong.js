@@ -283,7 +283,7 @@ function opcjeOdrzutu(gra, gracz) {
         const k = gracz.reka[i];
         if (!doWyboru.includes(k) || widziane.has(k)) continue;
         widziane.add(k);
-        opcje.push({ label: etykietaKlocka(k), value: k, emoji: emojiDlaMenu(gra, k) });
+        opcje.push({ label: `#${k[1]}`, value: k, emoji: emojiDlaMenu(gra, k) });
     }
     return opcje.slice(0, 25);
 }
@@ -306,12 +306,20 @@ async function pokazPanel(gracz, gra, tresc, komponenty) {
             { name: "Kolor zakazany", value: gracz.kolorZakazany ? `${EMOTKI_KOLOROW[gracz.kolorZakazany]} ${NAZWY_KOLOROW[gracz.kolorZakazany]}` : "jeszcze nie wybrany", inline: true },
         )
         .setImage("attachment://reka.png");
-    await gracz.interakcja.editReply({
-        content: "",
-        embeds: [embed],
-        files: [new AttachmentBuilder(obrazek, { name: "reka.png" })],
-        components: komponenty ?? [],
-    }).catch(() => {});
+    try {
+        await gracz.interakcja.editReply({
+            content: "",
+            embeds: [embed],
+            files: [new AttachmentBuilder(obrazek, { name: "reka.png" })],
+            components: komponenty ?? [],
+        });
+        gracz.panelUszkodzony = false;
+    } catch {
+        // Token interakcji wygasł (np. chwilowe obciążenie) - gracz musi kliknąć
+        // "Otwórz panel gracza" na stole, żeby dostać świeży panel
+        gracz.panelUszkodzony = true;
+        await aktualizujStol(gra, true).catch(() => {});
+    }
 }
 
 // Czeka na interakcję gracza na jego panelu (lub timeout) - zwraca interakcję albo null
@@ -339,6 +347,14 @@ async function aktualizujStol(gra, wymuszona) {
             { name: "Mur", value: `${gra.mur.length} klocków`, inline: true },
             { name: "Ostatni odrzut", value: gra.ostatniOdrzut ? `${nazwaZEmotka(gra, gra.ostatniOdrzut.klocek)} (${gra.ostatniOdrzut.nazwa})` : "brak", inline: true },
         );
+
+    const uszkodzeni = gra.gracze.filter(g => !g.bot && g.panelUszkodzony);
+    if (uszkodzeni.length > 0) {
+        embed.addFields({
+            name: "⚠️ Panel wygasł",
+            value: uszkodzeni.map(g => `<@${g.id}>`).join(", ") + " - kliknij **🀄 Otwórz panel gracza** poniżej, żeby dalej grać.",
+        });
+    }
 
     const zawartosc = {
         embeds: [embed],
@@ -368,7 +384,7 @@ async function fazaWymiany(gra) {
             for (const k of gracz.reka) {
                 const n = (uzyte.get(k) ?? 0);
                 uzyte.set(k, n + 1);
-                opcje.push({ label: `${etykietaKlocka(k)}${n > 0 ? ` (${n + 1})` : ""}`, value: `${k}_${n}`, emoji: emojiDlaMenu(gra, k) });
+                opcje.push({ label: `#${k[1]}${n > 0 ? ` (${n + 1})` : ""}`, value: `${k}_${n}`, emoji: emojiDlaMenu(gra, k) });
             }
             const menu = new StringSelectMenuBuilder().setCustomId("mj_wymiana").setPlaceholder("Wybierz 3 klocki JEDNEGO koloru do oddania").setMinValues(3).setMaxValues(3).addOptions(opcje.slice(0, 25));
             await pokazPanel(gracz, gra, "🔄 **Wymiana:** oddaj 3 klocki **jednego koloru** następnemu graczowi.\nPodpowiedź: najlepiej pozbyć się koloru, którego masz najmniej.", [new ActionRowBuilder().addComponents(menu)]);
@@ -626,7 +642,7 @@ async function zakonczGre(gra, wynik, deps) {
 // ===== Start / lobby =====
 
 function nowyGracz(id, nazwa, bot, interakcja) {
-    return { id, nazwa, bot, interakcja, reka: [], melds: [], kolorZakazany: null, oczekiwanie: null, ostatnioDobrany: null, ostatniWidok: null };
+    return { id, nazwa, bot, interakcja, reka: [], melds: [], kolorZakazany: null, oczekiwanie: null, ostatnioDobrany: null, ostatniWidok: null, panelUszkodzony: false };
 }
 
 function podepnijKolektorPanelu(gra, gracz, wiadomoscPanelu, czasMs) {
@@ -668,6 +684,7 @@ function podepnijPrzyciskPanelu(gra) {
 
             const widok = gracz.ostatniWidok ?? { tresc: "Czekaj na swoją turę...", komponenty: [] };
             await pokazPanel(gracz, gra, widok.tresc, widok.komponenty);
+            if (!gracz.panelUszkodzony) await aktualizujStol(gra, true).catch(() => {});
         } catch (err) {
             console.error("Błąd otwierania panelu majonga:", err);
         }
