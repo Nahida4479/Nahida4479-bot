@@ -1056,7 +1056,7 @@ const HELP_STRONY = [
         komenda: "/łowienie",
         plik: "lowienie",
         opis: "Steruj łódką i złap 3 ryby zanim skończy się czas.",
-        zdobywasz: "1-10 Solid Dice (złowienie 3 ryb w 20 sekund)",
+        zdobywasz: "1-10 Solid Dice (złowienie 3 ryb w 25 sekund)",
         tracisz: "1-5 Solid Dice (jeśli czas minie zanim złowisz 3 ryby)",
         cooldown: "10 minut",
     },
