@@ -4,6 +4,7 @@ import "dotenv/config";
 import { existsSync } from "fs";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js"
 import { db, initDB } from "./create-database-table.js";
+import { rozpocznijMajong } from "./majong.js";
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
 
@@ -40,6 +41,10 @@ client.once("ready", async () => {
         new SlashCommandBuilder()
         .setName("wyscig")
         .setDescription("Ścigaj się i omijaj przeszkody aby zdobyć Solid Dice"),
+
+        new SlashCommandBuilder()
+        .setName("majong")
+        .setDescription("Zagraj w Mahjonga NTE - solo z botami lub multiplayer do 4 osób"),
 
         // new SlashCommandBuilder()
         // .setName("delivery")
@@ -1338,7 +1343,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyscig"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyscig", "majong"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1399,7 +1404,7 @@ client.on("interactionCreate", async (interaction) => {
                 args: [user.id, interaction.guild.id],
             });
             await db.execute({
-                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyscig')",
+                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyscig', 'majong')",
                 args: [user.id, interaction.guild.id]
             });
             await interaction.reply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.`, ephemeral: true });
@@ -1693,6 +1698,16 @@ client.on("interactionCreate", async (interaction) => {
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
+    }
+
+    if (interaction.commandName === "majong") {
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "majong", 60 * 60 * 1000);
+        if (cooldown) {
+            await interaction.reply({ content: cooldown, ephemeral: true });
+            return;
+        }
+        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba });
+        return;
     }
 
     if (interaction.commandName === "łowienie") {
