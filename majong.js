@@ -384,7 +384,7 @@ async function fazaWymiany(gra) {
             for (const k of gracz.reka) {
                 const n = (uzyte.get(k) ?? 0);
                 uzyte.set(k, n + 1);
-                opcje.push({ label: `#${k[1]}${n > 0 ? ` (${n + 1})` : ""}`, value: `${k}_${n}`, emoji: emojiDlaMenu(gra, k) });
+                opcje.push({ label: `#${k[1]}`, value: `${k}_${n}`, emoji: emojiDlaMenu(gra, k) });
             }
             const menu = new StringSelectMenuBuilder().setCustomId("mj_wymiana").setPlaceholder("Wybierz 3 klocki JEDNEGO koloru do oddania").setMinValues(3).setMaxValues(3).addOptions(opcje.slice(0, 25));
             await pokazPanel(gracz, gra, "🔄 **Wymiana:** oddaj 3 klocki **jednego koloru** następnemu graczowi.\nPodpowiedź: najlepiej pozbyć się koloru, którego masz najmniej.", [new ActionRowBuilder().addComponents(menu)]);
@@ -699,6 +699,7 @@ async function rozpocznijPartie(gra, deps) {
         sortujReke(gracz.reka);
     }
     podepnijPrzyciskPanelu(gra);
+    await aktualizujStol(gra, true);
 
     try {
         await fazaWymiany(gra);
