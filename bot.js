@@ -1085,6 +1085,14 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
+        komenda: "/plecak",
+        plik: "plecak",
+        opis: "Podgląd Twojego konta: aktualne i łącznie zdobyte Solid Dice, miejsce w topce serwera, zebrane postacie z /roll oraz kupione skiny z /skiny.",
+        zdobywasz: "Nie dotyczy - to tylko podgląd Twojego stanu konta",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
+    },
+    {
         komenda: "😈 Event: Mammon",
         plik: "mammon",
         opis: "Mammon respi się sam z siebie na kanale ustawionym w /ntegra i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
