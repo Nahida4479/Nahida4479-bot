@@ -21,8 +21,21 @@ function etykietaKlocka(t) {
     return `${cyfra} ${ODMIANY_KOLOROW[t[0]][odmiana]}`;
 }
 
-// Jeśli serwer ma wgraną emotkę o nazwie mjZ1..mjB9 - używamy jej zamiast kolorowego kwadratu
+// Stałe ID emotek klocków - wgrane na serwerze emotek bota, działają wszędzie gdzie jest bot
+const EMOTKI_KLOCKOW = {
+    B1: "1523728735910498404", B2: "1523728788863844433", B3: "1523728822049046610",
+    B4: "1523728857063231649", B5: "1523728892932653198", B6: "1523728941955682336",
+    B7: "1523728975330021536", B8: "1523729008322416701", B9: "1523729044787691530",
+    K1: "1523729081873727620", K2: "1523729114048102492", K3: "1523729147434766539",
+    K4: "1523729176450957556", K5: "1523729215697063966", K6: "1523729256528609340",
+    K7: "1523729300069814435", K8: "1523729339911376946", K9: "1523729379375579157",
+    Z1: "1523729422782431253", Z2: "1523729463702192219", Z3: "1523729545646182421",
+    Z4: "1523729498720305357", Z5: "1523729581205360691", Z6: "1523729621332263032",
+    Z7: "1523729661966811406", Z8: "1523729698520174714", Z9: "1523729733274308708",
+};
+
 function emotkaKlocka(gra, t) {
+    if (EMOTKI_KLOCKOW[t]) return `<:mj${t}:${EMOTKI_KLOCKOW[t]}>`;
     const wlasna = gra?.guild?.emojis?.cache?.find(e => e.name === `mj${t}`);
     return wlasna ? wlasna.toString() : EMOTKI_KOLOROW[t[0]];
 }
@@ -32,6 +45,7 @@ function nazwaZEmotka(gra, t) {
 }
 
 function emojiDlaMenu(gra, t) {
+    if (EMOTKI_KLOCKOW[t]) return { id: EMOTKI_KLOCKOW[t] };
     const wlasna = gra?.guild?.emojis?.cache?.find(e => e.name === `mj${t}`);
     return wlasna ? { id: wlasna.id } : EMOTKI_KOLOROW[t[0]];
 }
@@ -40,9 +54,10 @@ const MAJONG_CZAS_TURY_MS = 30000;
 const MAJONG_CZAS_DOLACZANIA_MS = 30000;
 const MAJONG_CZAS_PRZEJECIA_MS = 10000;
 const MAJONG_LIMIT_GRY_MS = 20 * 60 * 1000;
+const MAJONG_LIMIT_BEZCZYNNOSCI_MS = 60 * 1000;
 const BOT_NAZWY = ["Bot Mint", "Bot Chiz", "Bot Nanally"];
 
-const aktywneMajongi = new Map();
+const aktywneMajongi = new Set();
 
 function losowaLiczba(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -280,6 +295,7 @@ function tekstMeldow(gra, gracz) {
 
 async function pokazPanel(gracz, gra, tresc, komponenty) {
     if (gracz.bot || !gracz.interakcja) return;
+    gracz.ostatniWidok = { tresc, komponenty };
     sortujReke(gracz.reka);
     const obrazek = await obrazekReki(gracz.reka);
     const embed = new EmbedBuilder()
@@ -324,7 +340,12 @@ async function aktualizujStol(gra, wymuszona) {
             { name: "Ostatni odrzut", value: gra.ostatniOdrzut ? `${nazwaZEmotka(gra, gra.ostatniOdrzut.klocek)} (${gra.ostatniOdrzut.nazwa})` : "brak", inline: true },
         );
 
-    const zawartosc = { embeds: [embed], components: [] };
+    const zawartosc = {
+        embeds: [embed],
+        components: gra.zakonczona ? [] : [new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("mj_panel").setLabel("🀄 Otwórz panel gracza").setStyle(ButtonStyle.Secondary)
+        )],
+    };
     if (gra.odrzucone.length > 0) {
         embed.setImage("attachment://stol.png");
         zawartosc.files = [new AttachmentBuilder(await obrazekOdrzutow(gra.odrzucone), { name: "stol.png" })];
@@ -537,6 +558,10 @@ async function petlaGry(gra) {
     let poPrzejeciu = false;
 
     while (Date.now() < koniecGry) {
+        if (Date.now() - gra.ostatniaAktywnoscLudzi > MAJONG_LIMIT_BEZCZYNNOSCI_MS) {
+            return { przerwana: true };
+        }
+
         const gracz = gra.gracze[gra.tura];
         await aktualizujStol(gra, true);
 
@@ -557,25 +582,32 @@ async function petlaGry(gra) {
 
 async function zakonczGre(gra, wynik, deps) {
     gra.zakonczona = true;
-    aktywneMajongi.delete(gra.guildId);
+    aktywneMajongi.delete(gra);
 
     let podsumowanie = "";
-    for (const gracz of gra.gracze) {
-        if (gracz.bot) continue;
-        let nagroda = deps.losowaLiczba(30, 50);
-        let bonus = "";
-        if (wynik.zwyciezca === gracz) {
-            nagroda += 50;
-            bonus = " (w tym +50 za wygraną)";
+    if (!wynik.przerwana) {
+        for (const gracz of gra.gracze) {
+            if (gracz.bot) continue;
+            let nagroda = deps.losowaLiczba(30, 50);
+            let bonus = "";
+            if (wynik.zwyciezca === gracz) {
+                nagroda += 50;
+                bonus = " (w tym +50 za wygraną)";
+            }
+            await deps.addSolidDice(gracz.id, gra.guildId, nagroda);
+            podsumowanie += `<@${gracz.id}> +${nagroda} <:Red_roll:1512521789748547715>${bonus}\n`;
         }
-        await deps.addSolidDice(gracz.id, gra.guildId, nagroda);
-        podsumowanie += `<@${gracz.id}> +${nagroda} <:Red_roll:1512521789748547715>${bonus}\n`;
     }
 
+    const tytul = wynik.przerwana
+        ? "🀄 Partia przerwana - brak aktywności graczy"
+        : wynik.zwyciezca
+            ? `🀄 ${wynik.sposob}! Wygrywa ${wynik.zwyciezca.nazwa}!`
+            : "🀄 Remis - mur się wyczerpał";
     const embed = new EmbedBuilder()
         .setColor(wynik.zwyciezca ? 0x2ECC71 : 0x555555)
-        .setTitle(wynik.zwyciezca ? `🀄 ${wynik.sposob}! Wygrywa ${wynik.zwyciezca.nazwa}!` : "🀄 Remis - mur się wyczerpał")
-        .setDescription(podsumowanie || "Brak nagród.");
+        .setTitle(tytul)
+        .setDescription(wynik.przerwana ? "Nikt nie ruszył się przez minutę, więc Mahjong się zwinął. Bez nagród." : (podsumowanie || "Brak nagród."));
 
     const zawartosc = { embeds: [embed], components: [], files: [] };
     if (wynik.zwyciezca) {
@@ -587,20 +619,21 @@ async function zakonczGre(gra, wynik, deps) {
     await gra.wiadomoscStolu.edit(zawartosc).catch(() => {});
 
     for (const gracz of gra.gracze) {
-        if (!gracz.bot) await pokazPanel(gracz, gra, wynik.zwyciezca === gracz ? "🏆 **Wygrałeś!**" : "Partia zakończona - wyniki na kanale.", []).catch(() => {});
+        if (!gracz.bot) await pokazPanel(gracz, gra, wynik.przerwana ? "Partia przerwana z powodu braku aktywności." : wynik.zwyciezca === gracz ? "🏆 **Wygrałeś!**" : "Partia zakończona - wyniki na kanale.", []).catch(() => {});
     }
 }
 
 // ===== Start / lobby =====
 
 function nowyGracz(id, nazwa, bot, interakcja) {
-    return { id, nazwa, bot, interakcja, reka: [], melds: [], kolorZakazany: null, oczekiwanie: null, ostatnioDobrany: null };
+    return { id, nazwa, bot, interakcja, reka: [], melds: [], kolorZakazany: null, oczekiwanie: null, ostatnioDobrany: null, ostatniWidok: null };
 }
 
-function podepnijKolektorPanelu(gracz, wiadomoscPanelu, czasMs) {
+function podepnijKolektorPanelu(gra, gracz, wiadomoscPanelu, czasMs) {
     const kolektor = wiadomoscPanelu.createMessageComponentCollector({ time: czasMs });
     kolektor.on("collect", async (i) => {
         try {
+            gra.ostatniaAktywnoscLudzi = Date.now();
             if (gracz.oczekiwanie && gracz.oczekiwanie.pasujaceId.includes(i.customId)) {
                 gracz.interakcja = i;
                 await i.deferUpdate().catch(() => {});
@@ -614,12 +647,41 @@ function podepnijKolektorPanelu(gracz, wiadomoscPanelu, czasMs) {
     });
 }
 
+// Przycisk na publicznym stole - pozwala odzyskać panel graczowi, który przypadkiem
+// zamknął (odrzucił) swoją ephemeralną wiadomość
+function podepnijPrzyciskPanelu(gra) {
+    const kolektor = gra.wiadomoscStolu.createMessageComponentCollector({ time: MAJONG_LIMIT_GRY_MS + 120000 });
+    kolektor.on("collect", async (i) => {
+        try {
+            if (i.customId !== "mj_panel") { await i.deferUpdate().catch(() => {}); return; }
+
+            const gracz = gra.gracze.find(g => !g.bot && g.id === i.user.id);
+            if (!gracz || gra.zakonczona) {
+                await i.reply({ content: "❗ Nie grasz w tej partii.", ephemeral: true });
+                return;
+            }
+
+            gra.ostatniaAktywnoscLudzi = Date.now();
+            gracz.interakcja = i;
+            const panel = await i.reply({ content: "🀄 Panel przywrócony!", ephemeral: true, fetchReply: true });
+            podepnijKolektorPanelu(gra, gracz, panel, MAJONG_LIMIT_GRY_MS + 120000);
+
+            const widok = gracz.ostatniWidok ?? { tresc: "Czekaj na swoją turę...", komponenty: [] };
+            await pokazPanel(gracz, gra, widok.tresc, widok.komponenty);
+        } catch (err) {
+            console.error("Błąd otwierania panelu majonga:", err);
+        }
+    });
+}
+
 async function rozpocznijPartie(gra, deps) {
+    gra.wystartowala = true;
     gra.mur = nowyMur();
     for (const gracz of gra.gracze) {
         gracz.reka = gra.mur.splice(0, 13);
         sortujReke(gracz.reka);
     }
+    podepnijPrzyciskPanelu(gra);
 
     try {
         await fazaWymiany(gra);
@@ -628,17 +690,13 @@ async function rozpocznijPartie(gra, deps) {
         await zakonczGre(gra, wynik, deps);
     } catch (err) {
         console.error("Błąd partii majonga:", err);
-        aktywneMajongi.delete(gra.guildId);
+        gra.zakonczona = true;
+        aktywneMajongi.delete(gra);
         await gra.wiadomoscStolu.edit({ embeds: [new EmbedBuilder().setColor(0xFF0000).setTitle("🀄 Partia przerwana przez błąd bota")], components: [], files: [] }).catch(() => {});
     }
 }
 
 export async function rozpocznijMajong(interaction, deps) {
-    if (aktywneMajongi.has(interaction.guild.id)) {
-        await interaction.reply({ content: "❗ Na tym serwerze trwa już partia Mahjonga!", ephemeral: true });
-        return;
-    }
-
     const rzadTrybow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("mj_solo").setLabel("🤖 Solo (z botami)").setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId("mj_multi").setLabel("👥 Multiplayer").setStyle(ButtonStyle.Success),
@@ -647,6 +705,7 @@ export async function rozpocznijMajong(interaction, deps) {
 
     const kolektorTrybu = wiadomosc.createMessageComponentCollector({ time: 60000 });
     let trybWybrany = false;
+    let gra = null;
 
     kolektorTrybu.on("collect", async (i) => {
         try {
@@ -655,10 +714,10 @@ export async function rozpocznijMajong(interaction, deps) {
                     await i.reply({ content: "❗ Tylko osoba, która wpisała /majong, wybiera tryb.", ephemeral: true });
                     return;
                 }
-                if (trybWybrany || aktywneMajongi.has(interaction.guild.id)) { await i.deferUpdate().catch(() => {}); return; }
+                if (trybWybrany) { await i.deferUpdate().catch(() => {}); return; }
                 trybWybrany = true;
 
-                const gra = {
+                gra = {
                     guildId: interaction.guild.id,
                     guild: interaction.guild,
                     gracze: [],
@@ -667,15 +726,17 @@ export async function rozpocznijMajong(interaction, deps) {
                     odrzucone: [],
                     ostatniOdrzut: null,
                     ostatniaAktualizacja: 0,
+                    ostatniaAktywnoscLudzi: Date.now(),
                     zakonczona: false,
+                    wystartowala: false,
                     wiadomoscStolu: wiadomosc,
                 };
-                aktywneMajongi.set(interaction.guild.id, gra);
+                aktywneMajongi.add(gra);
 
                 const tworca = nowyGracz(interaction.user.id, interaction.user.username, false, i);
                 gra.gracze.push(tworca);
                 const panelTworcy = await i.reply({ content: "🀄 Twój panel gry - tu pojawi się Twoja ręka!", ephemeral: true, fetchReply: true });
-                podepnijKolektorPanelu(tworca, panelTworcy, MAJONG_LIMIT_GRY_MS + 120000);
+                podepnijKolektorPanelu(gra, tworca, panelTworcy, MAJONG_LIMIT_GRY_MS + 120000);
 
                 if (i.customId === "mj_solo") {
                     kolektorTrybu.stop();
@@ -707,14 +768,14 @@ export async function rozpocznijMajong(interaction, deps) {
             }
 
             if (i.customId === "mj_dolacz") {
-                const gra = aktywneMajongi.get(interaction.guild.id);
-                if (!gra || gra.gracze.length >= 4) { await i.reply({ content: "❗ Partia jest już pełna!", ephemeral: true }); return; }
+                if (!gra || gra.wystartowala || gra.gracze.length >= 4) { await i.reply({ content: "❗ Partia jest już pełna lub wystartowała!", ephemeral: true }); return; }
                 if (gra.gracze.some(g => g.id === i.user.id)) { await i.reply({ content: "❗ Już dołączyłeś!", ephemeral: true }); return; }
 
+                gra.ostatniaAktywnoscLudzi = Date.now();
                 const gracz = nowyGracz(i.user.id, i.user.username, false, i);
                 gra.gracze.push(gracz);
                 const panel = await i.reply({ content: "🀄 Dołączyłeś! Tu pojawi się Twoja ręka po starcie partii.", ephemeral: true, fetchReply: true });
-                podepnijKolektorPanelu(gracz, panel, MAJONG_LIMIT_GRY_MS + 120000);
+                podepnijKolektorPanelu(gra, gracz, panel, MAJONG_LIMIT_GRY_MS + 120000);
 
                 await wiadomosc.edit({
                     embeds: [embedZasad().setFooter({ text: `Multiplayer - dołączanie otwarte! (${gra.gracze.length}/4)` })],
