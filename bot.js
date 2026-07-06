@@ -2491,11 +2491,16 @@ if (interaction.commandName === "help") {
 
     collectorHelp.on("collect", async (i) => {
         try {
+            // Ackujemy natychmiast (deferUpdate jest lokalne i szybkie) - wgranie gifa
+            // do Discorda potrafi trwać dłużej niż 3 sekundy, a wtedy interakcja
+            // przez i.update() zdążyłaby wygasnąć i pokazać "Ta czynność się nie powiodła"
+            await i.deferUpdate();
+
             if (i.customId === "help_poprzednia") aktualnaStronaHelp--;
             else if (i.customId === "help_nastepna") aktualnaStronaHelp++;
 
             const nowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
-            await i.update({
+            await i.editReply({
                 embeds: nowaStronaHelp.embeds,
                 files: nowaStronaHelp.files,
                 components: [przyciskiHelp()],
