@@ -2487,7 +2487,6 @@ if (interaction.commandName === "help") {
 
     const collectorHelp = wiadomoscHelp.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
-        time: 300000,
     });
 
     collectorHelp.on("collect", async (i) => {
@@ -2504,10 +2503,6 @@ if (interaction.commandName === "help") {
         } catch (error) {
             console.error("Błąd w /help:", error);
         }
-    });
-
-    collectorHelp.on("end", () => {
-        wiadomoscHelp.edit({ components: [] }).catch(() => {});
     });
 }
     } catch (error) {
