@@ -125,6 +125,10 @@ client.once("ready", async () => {
         .setDescription("Włącz lub wyłącz animacje"),
 
         new SlashCommandBuilder()
+        .setName("pinkcooldown")
+        .setDescription("Włącz/wyłącz oznaczanie Cię, gdy zakończy się cooldown na jedną z Twoich komend"),
+
+        new SlashCommandBuilder()
         .setName("help")
         .setDescription("Poradnik komend ekonomii - nagrody, straty, cooldowny i wideo"),
 
@@ -170,6 +174,53 @@ client.once("ready", async () => {
             console.error("Błąd harmonogramu Mammona:", err);
         }
     }, 10 * 60 * 1000);
+
+    setInterval(async () => {
+        try {
+            // Tylko cooldowny osób, które włączyły /pinkcooldown - unika przeglądania
+            // cooldownów wszystkich graczy co 30 sekund.
+            const wynik = await db.execute(`
+                SELECT c.user_id, c.guild_id, c.komenda, c.ostatnio
+                FROM cooldowny c
+                JOIN powiadomienia_cooldown p ON p.user_id = c.user_id AND p.guild_id = c.guild_id
+                WHERE c.powiadomiono = 0
+            `);
+            const teraz = Date.now();
+            const doWyslania = new Map();
+
+            for (const row of wynik.rows) {
+                const cooldownMs = KOMENDY_COOLDOWN_MS[row.komenda];
+                if (!cooldownMs) continue;
+                if (teraz - Number(row.ostatnio) < cooldownMs) continue;
+
+                await db.execute({
+                    sql: "UPDATE cooldowny SET powiadomiono = 1 WHERE user_id = ? AND guild_id = ? AND komenda = ?",
+                    args: [row.user_id, row.guild_id, row.komenda],
+                });
+
+                const klucz = `${row.guild_id}:${row.user_id}`;
+                if (!doWyslania.has(klucz)) doWyslania.set(klucz, { guildId: row.guild_id, userId: row.user_id, komendy: [] });
+                doWyslania.get(klucz).komendy.push(row.komenda);
+            }
+
+            for (const { guildId, userId, komendy } of doWyslania.values()) {
+                const serwerWynik = await db.execute({
+                    sql: "SELECT kanal_id FROM serwery WHERE guild_id = ?",
+                    args: [guildId],
+                });
+                const kanalId = serwerWynik.rows[0]?.kanal_id;
+                if (!kanalId) continue;
+
+                const kanal = await client.channels.fetch(kanalId).catch(() => null);
+                if (!kanal) continue;
+
+                const lista = komendy.map((k) => `\`/${k}\``).join(", ");
+                await kanal.send({ content: `🔔 <@${userId}> Twój cooldown na ${lista} właśnie się zakończył!` }).catch(() => {});
+            }
+        } catch (err) {
+            console.error("Błąd harmonogramu powiadomień /pinkcooldown:", err);
+        }
+    }, 30 * 1000);
 });
 
 client.login(process.env.token_bot);
@@ -189,6 +240,18 @@ async function czyMaBypassCooldown(userId, guildId) {
     });
     return wynik.rows.length > 0;
 }
+
+// Jedno miejsce z czasami cooldownów - używane przy sprawdzaniu w checkcooldown
+// oraz przez harmonogram powiadomień /pinkcooldown, żeby wiedzieć kiedy dany
+// cooldown realnie się kończy bez duplikowania tych liczb w dwóch miejscach.
+const KOMENDY_COOLDOWN_MS = {
+    daily: 24 * 60 * 60 * 1000,
+    work: 10 * 60 * 1000,
+    pinkpawsheist: 48 * 60 * 60 * 1000,
+    "wyścig": 30 * 60 * 1000,
+    "łowienie": 10 * 60 * 1000,
+    mahjong: 60 * 60 * 1000,
+};
 
 async function checkcooldown(userId, guildId, komenda, cooldownMs) {
     if (await czyMaBypassCooldown(userId, guildId)) return null;
@@ -211,7 +274,7 @@ async function checkcooldown(userId, guildId, komenda, cooldownMs) {
     }
 
     await db.execute({
-        sql: "INSERT INTO cooldowny (user_id, guild_id, komenda, ostatnio) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, guild_id, komenda) DO UPDATE SET ostatnio = ?",
+        sql: "INSERT INTO cooldowny (user_id, guild_id, komenda, ostatnio, powiadomiono) VALUES (?, ?, ?, ?, 0) ON CONFLICT(user_id, guild_id, komenda) DO UPDATE SET ostatnio = ?, powiadomiono = 0",
         args: [userId, guildId, komenda, teraz, teraz]
     });
 
@@ -1072,6 +1135,14 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
+        komenda: "/pinkcooldown",
+        plik: "pinkcooldown",
+        opis: "Włącz/wyłącz oznaczanie Cię na kanale ekonomii, gdy zakończy się cooldown na jedną z Twoich komend.",
+        zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
+    },
+    {
         komenda: "😈 Event: Mammon",
         plik: "mammon",
         opis: "Mammon respi się sam z siebie na kanale ekonomii i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
@@ -1463,7 +1534,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje", "pinkcooldown"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1476,7 +1547,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "daily") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", 24 * 60 * 60 *1000);
+        const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", KOMENDY_COOLDOWN_MS.daily);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1655,7 +1726,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "work") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", 10 * 60  * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", KOMENDY_COOLDOWN_MS.work);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1725,7 +1796,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "wyścig") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", 30 * 60 * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", KOMENDY_COOLDOWN_MS["wyścig"]);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1832,7 +1903,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "mahjong") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", 60 * 60 * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", KOMENDY_COOLDOWN_MS.mahjong);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1844,7 +1915,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "łowienie") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", 10 * 60 * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", KOMENDY_COOLDOWN_MS["łowienie"]);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -2338,7 +2409,7 @@ if (interaction.commandName === "skiny") {
 if (interaction.commandName === "pinkpawsheist") {
     await interaction.deferReply();
 
-    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", 48 * 60 * 60 * 1000);
+    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", KOMENDY_COOLDOWN_MS.pinkpawsheist);
     if (cooldown) {
         await interaction.editReply({ content: cooldown });
         return;
@@ -2426,6 +2497,29 @@ if (interaction.commandName === "animacje") {
         );
 
     await interaction.editReply({ embeds: [embed], components: [rowRoll] });
+}
+
+if (interaction.commandName === "pinkcooldown") {
+    await interaction.deferReply({ ephemeral: true });
+
+    const istnieje = await db.execute({
+        sql: "SELECT 1 FROM powiadomienia_cooldown WHERE user_id = ? AND guild_id = ?",
+        args: [interaction.user.id, interaction.guild.id],
+    });
+
+    if (istnieje.rows.length > 0) {
+        await db.execute({
+            sql: "DELETE FROM powiadomienia_cooldown WHERE user_id = ? AND guild_id = ?",
+            args: [interaction.user.id, interaction.guild.id],
+        });
+        await interaction.editReply({ content: "❌ Nie będziesz już oznaczany/a, gdy zakończy się Twój cooldown." });
+    } else {
+        await db.execute({
+            sql: "INSERT INTO powiadomienia_cooldown (user_id, guild_id) VALUES (?, ?)",
+            args: [interaction.user.id, interaction.guild.id],
+        });
+        await interaction.editReply({ content: "✅ Będziesz oznaczany/a na kanale ekonomii, gdy zakończy się cooldown na jedną z Twoich komend (np. `/work`, `/pinkpawsheist`, `/daily` itd.)." });
+    }
 }
 
 if (interaction.commandName === "help") {

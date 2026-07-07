@@ -33,11 +33,24 @@ export async function initDB() {
         )`);
 
         await db.execute(`CREATE TABLE IF NOT EXISTS cooldowny (
-            user_id TEXT, 
-            guild_id TEXT, 
-            komenda TEXT, 
+            user_id TEXT,
+            guild_id TEXT,
+            komenda TEXT,
             ostatnio INTEGER,
+            powiadomiono INTEGER DEFAULT 0,
             PRIMARY KEY (user_id, guild_id, komenda)
+        )`);
+
+        try {
+            await db.execute(`ALTER TABLE cooldowny ADD COLUMN powiadomiono INTEGER DEFAULT 0`);
+        } catch (err) {
+            // kolumna już istnieje - baza była utworzona przed dodaniem /pinkcooldown
+        }
+
+        await db.execute(`CREATE TABLE IF NOT EXISTS powiadomienia_cooldown (
+            user_id TEXT,
+            guild_id TEXT,
+            PRIMARY KEY (user_id, guild_id)
         )`);
 
         await db.execute(`CREATE TABLE IF NOT EXISTS serwery (

@@ -63,6 +63,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/plecak` | Check your Solid Dice, characters, skins and leaderboard rank | none |
 | `/nteleaderboard` | Player ranking by **ALL** Solid Dice ever earned | none |
 | `/animacje` | Turn the `/roll` animation on or off | none |
+| `/pinkcooldown` | Toggle being pinged when one of your command cooldowns ends | none |
 | `/help` | Guide to economy commands - rewards, losses, cooldowns and video | none |
 
 ### Administration

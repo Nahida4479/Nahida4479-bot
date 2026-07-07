@@ -66,6 +66,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/plecak` | Sprawdź swoje Solid Dice, postacie, skiny i miejsce w rankingu | brak |
 | `/nteleaderboard` | Ranking graczy według łącznie zdobytych Solid Dice | brak |
 | `/animacje` | Włącz lub wyłącz animację pokazywaną przy `/roll` | brak |
+| `/pinkcooldown` | Włącz/wyłącz oznaczanie Cię, gdy zakończy się cooldown na jedną z Twoich komend | brak |
 | `/help` | Poradnik komend ekonomii - nagrody, straty, cooldowny i wideo | brak |
 
 ### Administracja
