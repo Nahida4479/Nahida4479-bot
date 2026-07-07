@@ -1083,7 +1083,7 @@ const HELP_STRONY = [
 
 function budujStroneHelp(indeks) {
     const strona = HELP_STRONY[indeks];
-    const embed = new EmbedBuilder()
+    const embedSzybki = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle(strona.komenda)
         .setDescription(strona.opis)
@@ -1096,14 +1096,18 @@ function budujStroneHelp(indeks) {
 
     const sciezkaGif = `./Gra/video/${strona.plik}.gif`;
     const pliki = [];
+    let embedPelny = embedSzybki;
+
     if (existsSync(sciezkaGif)) {
         pliki.push(new AttachmentBuilder(sciezkaGif, { name: `${strona.plik}.gif` }));
-        embed.setImage(`attachment://${strona.plik}.gif`);
+        // Osobny embed z gifem - strona pokazuje się od razu z embedSzybki (bez wgrywania
+        // pliku), a gif dogrywa się drugą, wolniejszą edycją, żeby nie blokować tekstu
+        embedPelny = EmbedBuilder.from(embedSzybki).setImage(`attachment://${strona.plik}.gif`);
     } else {
-        embed.addFields({ name: "🎥 Wideo", value: "Wkrótce dodane" });
+        embedSzybki.addFields({ name: "🎥 Wideo", value: "Wkrótce dodane" });
     }
 
-    return { embeds: [embed], files: pliki };
+    return { embedySzybkie: [embedSzybki], embeds: [embedPelny], files: pliki };
 }
 
 client.on("interactionCreate", async (interaction) => {
@@ -2426,6 +2430,7 @@ if (interaction.commandName === "animacje") {
 
 if (interaction.commandName === "help") {
     let aktualnaStronaHelp = 0;
+    let wersjaHelp = 0;
 
     const przyciskiHelp = () => new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId("help_poprzednia").setLabel("Poprzednia").setStyle(ButtonStyle.Primary).setDisabled(aktualnaStronaHelp === 0),
@@ -2445,16 +2450,23 @@ if (interaction.commandName === "help") {
             )
     );
 
-    // Ackujemy natychmiast - budowanie strony i ewentualne wgranie gifa
-    // potrafi trwać dłużej niż 3-sekundowe okno na potwierdzenie interakcji
     await interaction.deferReply({ ephemeral: true });
 
     const poczatkowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
+    // Strona pokazuje się od razu z samym tekstem (embedySzybkie, bez plików) -
+    // gif dogrywa się drugą edycją w tle, żeby wgrywanie większego pliku nie
+    // blokowało wyświetlenia treści
     const wiadomoscHelp = await interaction.editReply({
-        embeds: poczatkowaStronaHelp.embeds,
-        files: poczatkowaStronaHelp.files,
+        embeds: poczatkowaStronaHelp.embedySzybkie,
         components: [listaHelp(), przyciskiHelp()],
     });
+    if (poczatkowaStronaHelp.files.length > 0) {
+        await interaction.editReply({
+            embeds: poczatkowaStronaHelp.embeds,
+            files: poczatkowaStronaHelp.files,
+            components: [listaHelp(), przyciskiHelp()],
+        }).catch(() => {});
+    }
 
     const collectorHelp = wiadomoscHelp.createMessageComponentCollector({
         filter: (i) => i.user.id === interaction.user.id,
@@ -2467,16 +2479,30 @@ if (interaction.commandName === "help") {
             // przez i.update() zdążyłaby wygasnąć i pokazać "Ta czynność się nie powiodła"
             await i.deferUpdate();
 
+            wersjaHelp++;
+            const mojaWersjaHelp = wersjaHelp;
+
             if (i.customId === "help_poprzednia") aktualnaStronaHelp--;
             else if (i.customId === "help_nastepna") aktualnaStronaHelp++;
             else if (i.customId === "help_wybierz") aktualnaStronaHelp = Number(i.values[0]);
 
             const nowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
+
+            // Tak jak przy pierwszym otwarciu - najpierw sam tekst, gif dogrywa się
+            // po nim. Jeśli w międzyczasie ktoś kliknął dalej, nie nadpisujemy już
+            // nowszej strony przeterminowanym gifem z tego kliknięcia.
             await i.editReply({
-                embeds: nowaStronaHelp.embeds,
-                files: nowaStronaHelp.files,
+                embeds: nowaStronaHelp.embedySzybkie,
                 components: [listaHelp(), przyciskiHelp()],
             });
+
+            if (nowaStronaHelp.files.length > 0 && mojaWersjaHelp === wersjaHelp) {
+                await i.editReply({
+                    embeds: nowaStronaHelp.embeds,
+                    files: nowaStronaHelp.files,
+                    components: [listaHelp(), przyciskiHelp()],
+                }).catch(() => {});
+            }
         } catch (error) {
             console.error("Błąd w /help:", error);
         }
