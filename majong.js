@@ -729,7 +729,7 @@ export async function rozpocznijMajong(interaction, deps) {
         try {
             if (i.customId === "mj_solo" || i.customId === "mj_multi") {
                 if (i.user.id !== interaction.user.id) {
-                    await i.reply({ content: "❗ Tylko osoba, która wpisała /majong, wybiera tryb.", ephemeral: true });
+                    await i.reply({ content: "❗ Tylko osoba, która wpisała /mahjong, wybiera tryb.", ephemeral: true });
                     return;
                 }
                 if (trybWybrany) { await i.deferUpdate().catch(() => {}); return; }

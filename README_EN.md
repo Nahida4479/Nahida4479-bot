@@ -47,21 +47,39 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 
 ## 📋 Commands
 
+### Economy
+
 | Command | Description | Cooldown |
 |---|---|---|
-| `/daily` | Collect daily Solid Dice | 24h |
-| `/work` | Earn Solid Dice | 2h |
-| `/kawiarnia` | Collect Solid Dice from the café | 4h |
-| `/pinkpawsheist` | Participate in Pink Paws Heist | 48h |
-| `/delivery` | Complete a delivery to earn Solid Dice | 24h |
-| `/łowienie` | Go fishing to earn Solid Dice | 10 min |
+| `/daily` | Collect a daily Solid Dice reward | 24h |
+| `/work` | Go to work and earn Solid Dice | 10 min |
+| `/pinkpawsheist` | Take part in the Pink Paws Heist (50% success chance) | 48h |
+| `/kawiarnia` | Collect Solid Dice accumulated at the café (1/h, capped at 48) | none |
+| `/wyścig` | Drive a car and dodge obstacles to reach the finish line | 30 min |
+| `/łowienie` | Catch 3 fish before time runs out | 10 min |
 | `/roll` | Roll 10 items for 10 Solid Dice | none |
-| `/plecak` | Check your collected items and characters | none |
-| `/wymiana` | Exchange items for Solid Dice | none |
+| `/mahjong` | Play NTE Mahjong - solo with bots or multiplayer up to 4 players | 1h |
+| `/skiny` | Buy character skins from the shop with Solid Dice | none |
+| `/plecak` | Check your Solid Dice, characters, skins and leaderboard rank | none |
 | `/nteleaderboard` | Player ranking by **ALL** Solid Dice ever earned | none |
-| `/ntegra` | Set the economy commands channel *(admin)* | none |
-| `/administracja` | Set the bot management role *(owner)* | none |
-| `/removecooldown` | Remove a player's cooldown **ONCE** *(owner — defined in OWNER_IDS)* | none |
+| `/animacje` | Turn the `/roll` animation on or off | none |
+| `/help` | Guide to economy commands - rewards, losses, cooldowns and video | none |
+
+### Administration
+
+| Command | Description |
+|---|---|
+| `/ntegra` | Set the economy commands channel *(admin)* |
+| `/administracja` | Set the bot management role *(server owner)* |
+| `/removecooldown` | Toggle a permanent cooldown bypass for a player *(bot administration)* |
+| `/addskin` | Add or update a skin in `/skiny` *(bot administration)* |
+| `/mammonevent` | Instantly summon Mammon in the channel set via `/ntegra` *(bot administration)* |
+
+---
+
+## 😈 Event: Mammon
+
+Mammon spawns on its own every 12-24h (random) in the channel set via `/ntegra` - defeating it together with other players rewards Solid Dice, with a bonus for the TOP 3 players by damage dealt.
 
 ---
 
@@ -70,7 +88,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 - Earn **Solid Dice** through daily commands
 - Use `/roll` to draw items and characters
 - Collect **6 copies of a character** to unlock bonuses
-- Exchange surplus items for Solid Dice via `/wymiana`
+- Buy cosmetic skins with Solid Dice via `/skiny`
 
 ---
 

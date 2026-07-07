@@ -39,11 +39,11 @@ client.once("ready", async () => {
         .setDescription("Odbierz Solid Dice z kawiarni"),
 
         new SlashCommandBuilder()
-        .setName("wyscig")
+        .setName("wyścig")
         .setDescription("Ścigaj się i omijaj przeszkody aby zdobyć Solid Dice"),
 
         new SlashCommandBuilder()
-        .setName("majong")
+        .setName("mahjong")
         .setDescription("Zagraj w Mahjonga NTE - solo z botami lub multiplayer do 4 osób"),
 
         // new SlashCommandBuilder()
@@ -1008,7 +1008,7 @@ const HELP_STRONY = [
         cooldown: "Brak - można sprawdzać w każdej chwili",
     },
     {
-        komenda: "/wyscig",
+        komenda: "/wyścig",
         plik: "wyscig",
         opis: "Prowadź samochód i omijaj przeszkody przez 5 ticków, żeby dojechać do mety.",
         zdobywasz: "5-15 Solid Dice (dojazd do mety)",
@@ -1032,7 +1032,7 @@ const HELP_STRONY = [
         cooldown: "Brak - ograniczone tylko posiadanym saldem",
     },
     {
-        komenda: "/majong",
+        komenda: "/mahjong",
         plik: "majong",
         opis: "Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób.",
         zdobywasz: "10-30 Solid Dice za dokończenie partii, dodatkowe +50 za wygraną",
@@ -1463,7 +1463,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyscig", "majong", "skiny", "roll", "plecak", "wymiana", "animacje"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1528,7 +1528,7 @@ client.on("interactionCreate", async (interaction) => {
                 args: [user.id, interaction.guild.id],
             });
             await db.execute({
-                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyscig', 'majong')",
+                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyścig', 'mahjong')",
                 args: [user.id, interaction.guild.id]
             });
             await interaction.editReply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.` });
@@ -1722,10 +1722,10 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.editReply({ content: "", embeds: [embed], components: [row] });
     }
 
-    if (interaction.commandName === "wyscig") {
+    if (interaction.commandName === "wyścig") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyscig", 30 * 60 * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", 30 * 60 * 1000);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1797,7 +1797,7 @@ client.on("interactionCreate", async (interaction) => {
                 pas = i.customId === "wyscig_lewo" ? 0 : 1;
                 await i.update({ content: naglowekWyscigu + rysujPlansze(), components: [przyciskiWyscigu(false)] });
             } catch (error) {
-                console.error("Błąd w /wyscig:", error);
+                console.error("Błąd w /wyścig:", error);
             }
         });
 
@@ -1829,10 +1829,10 @@ client.on("interactionCreate", async (interaction) => {
         }
     }
 
-    if (interaction.commandName === "majong") {
+    if (interaction.commandName === "mahjong") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "majong", 60 * 60 * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", 60 * 60 * 1000);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;

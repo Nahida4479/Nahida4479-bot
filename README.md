@@ -50,21 +50,39 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 
 ## 📋 Komendy
 
+### Ekonomia
+
 | Komenda | Opis | Cooldown |
 |---|---|---|
-| `/daily` | Odbierz dzienne Solid Dice | 24h |
-| `/work` | Zarabiaj Solid Dice | 2h |
-| `/kawiarnia` | Odbierz Solid Dice z kawiarni | 4h |
-| `/pinkpawsheist` | Weź udział w Pink Paws Heist | 48h |
-| `/delivery` | Wykonaj dostawę aby dostać Solid Dice | 24h |
-| `/łowienie` | Łów aby zdobyć nagrody | 10 min |
+| `/daily` | Odbierz codzienną nagrodę Solid Dice | 24h |
+| `/work` | Idź do pracy i zarób Solid Dice | 10 min |
+| `/pinkpawsheist` | Weź udział w napadzie Pink Paws Heist (50% szans na sukces) | 48h |
+| `/kawiarnia` | Odbierz Solid Dice zgromadzone w kawiarni (1/h, magazyn max 48) | brak |
+| `/wyścig` | Prowadź samochód i omijaj przeszkody, żeby dojechać do mety | 30 min |
+| `/łowienie` | Złap 3 ryby zanim skończy się czas | 10 min |
 | `/roll` | Wylosuj 10 przedmiotów za 10 Solid Dice | brak |
-| `/plecak` | Sprawdź swój ekwipunek i postacie | brak |
-| `/wymiana` | Wymień itemy na Solid Dice | brak |
-| `/nteleaderboard` | Ranking graczy według zdobytych Solid Dice | brak |
-| `/ntegra` | Ustaw kanał do komend ekonomii *(admin)* | brak |
-| `/administracja` | Ustaw rolę zarządzającą botem *(właściciel serwera)* | brak |
-| `/removecooldown` | Usuń jednorazowo cooldown gracza *(właściciel dodany pod OWNER_ID)* | brak |
+| `/mahjong` | Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób | 1h |
+| `/skiny` | Kup skiny postaci w sklepie za Solid Dice | brak |
+| `/plecak` | Sprawdź swoje Solid Dice, postacie, skiny i miejsce w rankingu | brak |
+| `/nteleaderboard` | Ranking graczy według łącznie zdobytych Solid Dice | brak |
+| `/animacje` | Włącz lub wyłącz animację pokazywaną przy `/roll` | brak |
+| `/help` | Poradnik komend ekonomii - nagrody, straty, cooldowny i wideo | brak |
+
+### Administracja
+
+| Komenda | Opis |
+|---|---|
+| `/ntegra` | Ustaw kanał do komend ekonomii *(admin)* |
+| `/administracja` | Ustaw rolę zarządzającą botem *(właściciel serwera)* |
+| `/removecooldown` | Włącz/wyłącz permanentny bypass cooldownów dla gracza *(administracja bota)* |
+| `/addskin` | Dodaj lub zaktualizuj skin w `/skiny` *(administracja bota)* |
+| `/mammonevent` | Natychmiast przywołaj Mammona na kanale ustawionym w `/ntegra` *(administracja bota)* |
+
+---
+
+## 😈 Event: Mammon
+
+Mammon respi się sam z siebie co 12-24h (losowo) na kanale ustawionym w `/ntegra` - pokonanie go wspólnie z innymi graczami daje Solid Dice, z bonusem dla TOP 3 graczy z największymi obrażeniami.
 
 ---
 
@@ -73,7 +91,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 - Zdobywaj **Solid Dice** przez komendy dzienne
 - Używaj `/roll` aby losować przedmioty i postacie
 - Zbieraj **6 kopii postaci** aby odblokować bonusy
-- Wymieniaj nadmiarowe przedmioty na Solid Dice przez `/wymiana`
+- Kupuj kosmetyczne skiny za Solid Dice przez `/skiny`
 
 ---
 
