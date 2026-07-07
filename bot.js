@@ -1026,7 +1026,7 @@ const HELP_STRONY = [
         opis: "Idź do pracy i zarób Solid Dice.",
         zdobywasz: "5-9 Solid Dice",
         tracisz: "Nie dotyczy",
-        cooldown: "2 godziny",
+        cooldown: "10 minut",
     },
     {
         komenda: "/pinkpawsheist",
@@ -1050,7 +1050,7 @@ const HELP_STRONY = [
         opis: "Prowadź samochód i omijaj przeszkody przez 5 ticków, żeby dojechać do mety.",
         zdobywasz: "5-15 Solid Dice (dojazd do mety)",
         tracisz: "Nie tracisz Solid Dice - rozbicie kończy grę po prostu bez nagrody",
-        cooldown: "1 godzina",
+        cooldown: "30 minut",
     },
     {
         komenda: "/łowienie",
@@ -1072,7 +1072,7 @@ const HELP_STRONY = [
         komenda: "/majong",
         plik: "majong",
         opis: "Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób.",
-        zdobywasz: "30-50 Solid Dice za dokończenie partii, dodatkowe +50 za wygraną",
+        zdobywasz: "10-30 Solid Dice za dokończenie partii, dodatkowe +50 za wygraną",
         tracisz: "Nie dotyczy - w najgorszym razie nie dostajesz nagrody (remis, partia przerwana)",
         cooldown: "1 godzina (dla osoby zakładającej grę)",
     },
@@ -1675,7 +1675,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "work") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", 2 * 60 * 60  * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", 10 * 60  * 1000);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1752,7 +1752,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "wyscig") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyscig", 60 * 60 * 1000);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyscig", 30 * 60 * 1000);
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;

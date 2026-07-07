@@ -604,7 +604,7 @@ async function zakonczGre(gra, wynik, deps) {
     if (!wynik.przerwana) {
         for (const gracz of gra.gracze) {
             if (gracz.bot) continue;
-            let nagroda = deps.losowaLiczba(30, 50);
+            let nagroda = deps.losowaLiczba(10, 30);
             let bonus = "";
             if (wynik.zwyciezca === gracz) {
                 nagroda += 50;
