@@ -125,7 +125,7 @@ client.once("ready", async () => {
         .setDescription("Włącz lub wyłącz animacje"),
 
         new SlashCommandBuilder()
-        .setName("pinkcooldown")
+        .setName("pingcooldown")
         .setDescription("Włącz/wyłącz oznaczanie Cię, gdy zakończy się cooldown na jedną z Twoich komend"),
 
         new SlashCommandBuilder()
@@ -218,7 +218,7 @@ client.once("ready", async () => {
                 await kanal.send({ content: `🔔 <@${userId}> Twój cooldown na ${lista} właśnie się zakończył!` }).catch(() => {});
             }
         } catch (err) {
-            console.error("Błąd harmonogramu powiadomień /pinkcooldown:", err);
+            console.error("Błąd harmonogramu powiadomień /pingcooldown:", err);
         }
     }, 30 * 1000);
 });
@@ -1135,8 +1135,8 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/pinkcooldown",
-        plik: "pinkcooldown",
+        komenda: "/pingcooldown",
+        plik: "pingcooldown",
         opis: "Włącz/wyłącz oznaczanie Cię na kanale ekonomii, gdy zakończy się cooldown na jedną z Twoich komend.",
         zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
         tracisz: "Nie dotyczy",
@@ -1534,7 +1534,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje", "pinkcooldown"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje", "pingcooldown"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -2499,7 +2499,7 @@ if (interaction.commandName === "animacje") {
     await interaction.editReply({ embeds: [embed], components: [rowRoll] });
 }
 
-if (interaction.commandName === "pinkcooldown") {
+if (interaction.commandName === "pingcooldown") {
     await interaction.deferReply({ ephemeral: true });
 
     const istnieje = await db.execute({
