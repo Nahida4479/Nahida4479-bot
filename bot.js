@@ -137,20 +137,31 @@ client.once("ready", async () => {
 
     setInterval(async () => {
         try {
-            const serweryWynik = await db.execute("SELECT guild_id, kanal_id FROM serwery WHERE kanal_id IS NOT NULL");
+            // Termin kolejnego spawnu trzymamy w bazie (nie w pamięci) - inaczej każdy
+            // restart bota (deploy, crash, pm2 restart) zerowałby odliczanie i ustawiał
+            // nowe losowe 12-24h od nowa, przez co Mammon mógłby nigdy się nie zrespić
+            // samoistnie przy częstych restartach.
+            const serweryWynik = await db.execute("SELECT guild_id, kanal_id, nastepny_mammon FROM serwery WHERE kanal_id IS NOT NULL");
             const teraz = Date.now();
 
             for (const row of serweryWynik.rows) {
                 const guildId = row.guild_id;
+                const nastepnySpawn = row.nastepny_mammon ? Number(row.nastepny_mammon) : null;
 
-                if (!nastepnySpawnMammon.has(guildId)) {
-                    nastepnySpawnMammon.set(guildId, teraz + losowyOdstepSpawnuMammona());
+                if (!nastepnySpawn) {
+                    await db.execute({
+                        sql: "UPDATE serwery SET nastepny_mammon = ? WHERE guild_id = ?",
+                        args: [teraz + losowyOdstepSpawnuMammona(), guildId],
+                    });
                     continue;
                 }
 
-                if (teraz < nastepnySpawnMammon.get(guildId) || aktywneMammony.has(guildId)) continue;
+                if (teraz < nastepnySpawn || aktywneMammony.has(guildId)) continue;
 
-                nastepnySpawnMammon.set(guildId, teraz + losowyOdstepSpawnuMammona());
+                await db.execute({
+                    sql: "UPDATE serwery SET nastepny_mammon = ? WHERE guild_id = ?",
+                    args: [teraz + losowyOdstepSpawnuMammona(), guildId],
+                });
 
                 const kanal = await client.channels.fetch(row.kanal_id).catch(() => null);
                 if (kanal) await odpalMammona(guildId, kanal);
@@ -733,7 +744,6 @@ const MAMMON_SPAWN_MIN_H = 12;
 const MAMMON_SPAWN_MAX_H = 24;
 
 const aktywneMammony = new Map();
-const nastepnySpawnMammon = new Map();
 
 const MAMMON_ABILITKI = {
     dmg50: { nazwa: "💥 Cios Mocy", opis: "Zadaje jednorazowo 50 obrażeń Mammonowi." },

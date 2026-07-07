@@ -41,9 +41,15 @@ export async function initDB() {
         )`);
 
         await db.execute(`CREATE TABLE IF NOT EXISTS serwery (
-            guild_id TEXT PRIMARY KEY, 
+            guild_id TEXT PRIMARY KEY,
             kanal_id TEXT
         )`);
+
+        try {
+            await db.execute(`ALTER TABLE serwery ADD COLUMN nastepny_mammon INTEGER`);
+        } catch (err) {
+            // kolumna już istnieje - baza była utworzona przed dodaniem harmonogramu Mammona
+        }
         await db.execute(`CREATE TABLE IF NOT EXISTS ustawienia (
             user_id TEXT NOT NULL,
             guild_id TEXT NOT NULL,
