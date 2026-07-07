@@ -707,30 +707,30 @@ async function pokazRollAnimacje(interaction) {
 }
 
 const kawiarniaRysunek = [
-"                ",
-"                          )     (",
-"                   ___...(-------)-....___",
-"               .-\"\"       )    (          \"\"-.",
-"         .-'``'|-._             )         _.-|",
-"        /  .--.|   `\"\"---...........---\"\"`   |",
-"       /  /    |                             |",
-"       |  |    |                             |",
-"        \\  \\   |                             |",
-"         `\\ `\\ |                             |",
-"           `\\ `|                             |",
-"           _/ /\\                             /",
-"          (__/  \\                           /",
-"       _..---\"\"` \\                         /`\"\"---.._",
-"    .-'           \\                       /          '-.",
-"   :               `-.__             __.-'              :",
-"   :                  ) \"\"---...---\"\" (                 :",
-"    '._               `\"--...___...--\"`              _.'",
-"       \"\"--..__                              __..--\"\"/",
-"       '._     \"\"\"----.....______.....----\"\"\"     _.'",
-"          `\"\"--..,,_____            _____,,..--\"\"`",
-"                        `\"\"\"----\"\"\"`",
+"         )   (",
+"      __..----..__",
+"    .\"     )  (   \".",
+"   /`-.             .-`\\",
+"  /    `--........--`    \\",
+"  |                        |",
+"  |                        |",
+"   \\                      /",
+"    \\                    /",
+"     \\                  /",
+"      \\                /",
+"       \\_            _/",
+"      .-'  \\        /  '-.",
+"    .'                    '.",
+"   :         `.  .'         :",
+"   :           )--(          :",
+"    '.        .--.         .'",
+"      '-.._            _..-'",
+"          `'--....--'`",
 ];
 
+// Wersja zmniejszona (max ~30 znaków szerokości zamiast oryginalnych 57) -
+// szersze rysunki łamią się na urządzeniach mobilnych, bo blok kodu na telefonie
+// zawija tekst zamiast pozwolić przewijać w poziomie, co psuje wyrównanie rysunku.
 function ramkaKawiarni(odIndeks, doIndeks) {
     const stopka = "\n> Animację możesz wyłączyć pod /animacje";
     const wycinek = kawiarniaRysunek.slice(odIndeks, doIndeks).join("\n");
@@ -738,9 +738,9 @@ function ramkaKawiarni(odIndeks, doIndeks) {
 }
 
 const kawiarniaAnimacja = [
-    ramkaKawiarni(8, 14),
-    ramkaKawiarni(3, 19),
-    ramkaKawiarni(0, 22),
+    ramkaKawiarni(6, 12),
+    ramkaKawiarni(2, 17),
+    ramkaKawiarni(0, 19),
 ];
 
 async function pokazKawiarniaAnimacje(interaction) {
@@ -1089,6 +1089,22 @@ const HELP_STRONY = [
         plik: "plecak",
         opis: "Podgląd Twojego konta: aktualne i łącznie zdobyte Solid Dice, miejsce w topce serwera, zebrane postacie z /roll oraz kupione skiny z /skiny.",
         zdobywasz: "Nie dotyczy - to tylko podgląd Twojego stanu konta",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
+    },
+    {
+        komenda: "/nteleaderboard",
+        plik: "nteleaderboard",
+        opis: "Wyświetl ranking graczy na serwerze według łącznie zdobytych Solid Dice.",
+        zdobywasz: "Nie dotyczy - to tylko podgląd rankingu serwera",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
+    },
+    {
+        komenda: "/animacje",
+        plik: "animacje",
+        opis: "Włącz lub wyłącz animacje pokazywane przy /roll i /kawiarnia.",
+        zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
         tracisz: "Nie dotyczy",
         cooldown: "Brak",
     },
@@ -2476,13 +2492,28 @@ if (interaction.commandName === "help") {
         new ButtonBuilder().setCustomId("help_nastepna").setLabel("Następna").setStyle(ButtonStyle.Primary).setDisabled(aktualnaStronaHelp === HELP_STRONY.length - 1),
     );
 
+    const listaHelp = () => new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId("help_wybierz")
+            .setPlaceholder("📖 Wybierz komendę...")
+            .addOptions(
+                HELP_STRONY.map((strona, i) => ({
+                    label: strona.komenda,
+                    value: String(i),
+                    default: i === aktualnaStronaHelp,
+                }))
+            )
+    );
+
+    // Ackujemy natychmiast - budowanie strony i ewentualne wgranie gifa
+    // potrafi trwać dłużej niż 3-sekundowe okno na potwierdzenie interakcji
+    await interaction.deferReply({ ephemeral: true });
+
     const poczatkowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
-    const wiadomoscHelp = await interaction.reply({
+    const wiadomoscHelp = await interaction.editReply({
         embeds: poczatkowaStronaHelp.embeds,
         files: poczatkowaStronaHelp.files,
-        components: [przyciskiHelp()],
-        ephemeral: true,
-        fetchReply: true,
+        components: [listaHelp(), przyciskiHelp()],
     });
 
     const collectorHelp = wiadomoscHelp.createMessageComponentCollector({
@@ -2498,12 +2529,13 @@ if (interaction.commandName === "help") {
 
             if (i.customId === "help_poprzednia") aktualnaStronaHelp--;
             else if (i.customId === "help_nastepna") aktualnaStronaHelp++;
+            else if (i.customId === "help_wybierz") aktualnaStronaHelp = Number(i.values[0]);
 
             const nowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
             await i.editReply({
                 embeds: nowaStronaHelp.embeds,
                 files: nowaStronaHelp.files,
-                components: [przyciskiHelp()],
+                components: [listaHelp(), przyciskiHelp()],
             });
         } catch (error) {
             console.error("Błąd w /help:", error);
