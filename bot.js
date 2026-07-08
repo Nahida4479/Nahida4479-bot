@@ -1078,7 +1078,7 @@ const HELP_STRONY = [
     {
         komenda: "/wyścig",
         plik: "wyscig",
-        opis: "Prowadź samochód i omijaj przeszkody przez 5 ticków, żeby dojechać do mety.",
+        opis: "Prowadź samochód i omijaj przeszkody przez 10 ticków, żeby dojechać do mety.",
         zdobywasz: "5-15 Solid Dice (dojazd do mety)",
         tracisz: "Nie tracisz Solid Dice - rozbicie kończy grę po prostu bez nagrody",
         cooldown: "30 minut",
@@ -1815,13 +1815,17 @@ client.on("interactionCreate", async (interaction) => {
             return;
         }
 
-        const WYSCIG_TICKI = 5;
+        const WYSCIG_TICKI = 10;
         const WYSCIG_TICK_MS = 1200;
 
         // tor[t] = pas zajęty przez przeszkodę, która dociera do auta w ticku t (0=lewy, 1=prawy, null=wolna droga).
+        // Pierwsze 2 ticki zawsze wolne (spokojny start) - żaden wzór nie zawiera 1 ani 2.
         // Wzory bez dwóch przeszkód tick po ticku, żeby dało się zareagować mimo opóźnień Discorda.
         const tor = new Array(WYSCIG_TICKI + 1).fill(null);
-        const wzoryPrzeszkod = [[2, 4], [1, 3], [3, 5], [1, 4], [2, 5], [1, 3, 5]];
+        const wzoryPrzeszkod = [
+            [3, 5, 7, 9], [4, 6, 8, 10], [3, 6, 9], [4, 7, 10], [3, 5, 8, 10],
+            [4, 6, 9], [3, 6, 8, 10], [5, 7, 9], [3, 5, 7, 10], [4, 7, 9],
+        ];
         const wzor = wzoryPrzeszkod[Math.floor(Math.random() * wzoryPrzeszkod.length)];
         const emotkiPrzeszkod = {};
         for (const t of wzor) {
