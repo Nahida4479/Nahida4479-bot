@@ -357,7 +357,9 @@ async function aktualizujStol(gra, wymuszona) {
     }
 
     const zawartosc = {
-        embeds: [embed],
+        // Zasady zostają widoczne przez całą rundę (nie tylko w lobby przed startem),
+        // żeby każdy mógł je sobie przypomnieć w dowolnym momencie partii
+        embeds: [embedZasad(), embed],
         components: gra.zakonczona ? [] : [new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId("mj_panel").setLabel("🀄 Otwórz panel gracza").setStyle(ButtonStyle.Secondary)
         )],

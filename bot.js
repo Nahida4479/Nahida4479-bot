@@ -1887,7 +1887,7 @@ client.on("interactionCreate", async (interaction) => {
 
         if (rozbity) {
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + "\n\n💥 **Rozbiłeś się!** Nie zdobywasz Solid Dice - spróbuj ponownie za godzinę.",
+                content: naglowekWyscigu + rysujPlansze() + "\n\n💥 **Rozbiłeś się!** Nie zdobywasz Solid Dice - spróbuj ponownie za 30 minut.",
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         } else {
@@ -2544,7 +2544,7 @@ if (interaction.commandName === "help") {
             )
     );
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
 
     const poczatkowaStronaHelp = budujStroneHelp(aktualnaStronaHelp);
     // Strona pokazuje się od razu z samym tekstem (embedySzybkie, bez plików) -
