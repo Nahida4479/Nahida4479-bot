@@ -795,8 +795,8 @@ async function getUstawienia(userId, guildId) {
 // Mammon - event bossa
 
 const MAMMON_SCIEZKA_OBRAZKA = "./Gra/mammon/mammon.jpg";
-const MAMMON_HP_BAZA = 250;
-const MAMMON_HP_ZA_GRACZA = 100;
+const MAMMON_HP_BAZA = 350;
+const MAMMON_HP_ZA_GRACZA = 120;
 const MAMMON_ATAK_OBRAZENIA = 10;
 const MAMMON_ULT_OBRAZENIA = MAMMON_ATAK_OBRAZENIA * 3;
 const MAMMON_COOLDOWN_ATAK_MS = 1000;
