@@ -57,6 +57,14 @@ const MAJONG_LIMIT_GRY_MS = 20 * 60 * 1000;
 const MAJONG_LIMIT_BEZCZYNNOSCI_MS = 60 * 1000;
 const BOT_NAZWY = ["Bot Mint", "Bot Chiz", "Bot Nanally"];
 
+// Boty grały zbyt optymalnie względem ludzi (człowiek dostaje Pung/Kong/Kong-z-ręki
+// jako opcję do wyboru, a boty zgarniały je zawsze) - te szanse celowo osłabiają
+// boty, żeby granie przeciwko nim było bardziej wyrównane
+const BOT_SZANSA_KONG_Z_REKI = 0.5;
+const BOT_SZANSA_PRZEJECIA_PUNG = 0.4;
+const BOT_SZANSA_PRZEJECIA_KONG = 0.6;
+const BOT_SZANSA_BLEDU_ODRZUTU = 0.2;
+
 const aktywneMajongi = new Set();
 
 function losowaLiczba(min, max) {
@@ -231,6 +239,17 @@ function wybierzOdrzut(gracz) {
         if (wynik < najgorszyWynik) { najgorszyWynik = wynik; najgorszy = k; }
     }
     return najgorszy;
+}
+
+// Boty odrzucają czasem losowy klocek zamiast optymalnego z wybierzOdrzut - symuluje
+// niedoskonałe granie, żeby boty nie liczyły ręki idealnie za każdym razem
+function wybierzOdrzutBota(gracz) {
+    if (Math.random() < BOT_SZANSA_BLEDU_ODRZUTU) {
+        const zakazane = gracz.reka.filter(k => k[0] === gracz.kolorZakazany);
+        const pula = zakazane.length > 0 ? zakazane : gracz.reka;
+        return pula[Math.floor(Math.random() * pula.length)];
+    }
+    return wybierzOdrzut(gracz);
 }
 
 function najmniejszyKolorZ3(reka) {
@@ -468,9 +487,9 @@ async function turaGracza(gra, gracz, poPrzejeciu) {
         }
     }
 
-    // Kong z ręki (bot: zawsze; człowiek: przycisk)
+    // Kong z ręki (bot: z szansą BOT_SZANSA_KONG_Z_REKI; człowiek: przycisk)
     let kong = mozliwyKongZReki(gracz);
-    while (kong && gracz.bot) {
+    while (kong && gracz.bot && Math.random() < BOT_SZANSA_KONG_Z_REKI) {
         wykonajKong(gracz, kong);
         if (gra.mur.length === 0) return { remis: true };
         gracz.reka.push(gra.mur.pop());
@@ -482,7 +501,7 @@ async function turaGracza(gra, gracz, poPrzejeciu) {
     let odrzut;
     if (gracz.bot) {
         await new Promise(r => setTimeout(r, 900 + Math.random() * 700));
-        odrzut = wybierzOdrzut(gracz);
+        odrzut = wybierzOdrzutBota(gracz);
     } else {
         while (true) {
             const komponenty = [new ActionRowBuilder().addComponents(
@@ -539,7 +558,8 @@ async function turaGracza(gra, gracz, poPrzejeciu) {
 
         let decyzja = null;
         if (inny.bot) {
-            decyzja = kopie >= 3 ? "kong" : "pung";
+            const szansaPrzejecia = kopie >= 3 ? BOT_SZANSA_PRZEJECIA_KONG : BOT_SZANSA_PRZEJECIA_PUNG;
+            if (Math.random() < szansaPrzejecia) decyzja = kopie >= 3 ? "kong" : "pung";
         } else {
             const przyciski = [new ButtonBuilder().setCustomId("mj_pung").setLabel("✊ Pung").setStyle(ButtonStyle.Success)];
             if (kopie >= 3) przyciski.push(new ButtonBuilder().setCustomId("mj_kongclaim").setLabel("💠 Kong").setStyle(ButtonStyle.Success));

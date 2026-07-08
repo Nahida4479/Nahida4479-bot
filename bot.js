@@ -55,6 +55,10 @@ client.once("ready", async () => {
         .setDescription("Zacznij łowić aby zdobyć Solid Dice"),
 
         new SlashCommandBuilder()
+        .setName("automat")
+        .setDescription("Zagraj w automat z zabawkami - złap zabawkę zanim skończy się czas"),
+
+        new SlashCommandBuilder()
         .setName("ntegra")
         .setDescription("Ustaw kanał gry - Nte Gra")
         .addChannelOption((opt) =>
@@ -250,6 +254,7 @@ const KOMENDY_COOLDOWN_MS = {
     pinkpawsheist: 48 * 60 * 60 * 1000,
     "wyścig": 30 * 60 * 1000,
     "łowienie": 10 * 60 * 1000,
+    automat: 10 * 60 * 1000,
     mahjong: 60 * 60 * 1000,
 };
 
@@ -1087,6 +1092,14 @@ const HELP_STRONY = [
         cooldown: "10 minut",
     },
     {
+        komenda: "/automat",
+        plik: "automat",
+        opis: "Steruj szczypcami automatu i złap zabawkę zanim skończy się czas - szczypce bywają kapryśne, więc nawet trafienie w zabawkę nie gwarantuje udanego chwytu.",
+        zdobywasz: "1-10 Solid Dice (udany chwyt zabawki)",
+        tracisz: "1-5 Solid Dice (jeśli czas minie zanim złapiesz zabawkę)",
+        cooldown: "10 minut",
+    },
+    {
         komenda: "/roll",
         plik: "roll",
         opis: "Wylosuj 10 przedmiotów np. postacie, dodatkowe Solid Dice.",
@@ -1534,7 +1547,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje", "pingcooldown"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje", "pingcooldown"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1599,7 +1612,7 @@ client.on("interactionCreate", async (interaction) => {
                 args: [user.id, interaction.guild.id],
             });
             await db.execute({
-                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'wyścig', 'mahjong')",
+                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? and komenda IN ('daily', 'work', 'skillissues', 'pinkpawsheist', 'kawiarnia', 'delivery', 'łowienie', 'automat', 'wyścig', 'mahjong')",
                 args: [user.id, interaction.guild.id]
             });
             await interaction.editReply({ content: `✅ ${user} może teraz używać komend ekonomii bez cooldownu - aż ktoś ponownie wpisze \`/removecooldown\` dla tego użytkownika.` });
@@ -2022,6 +2035,133 @@ client.on("interactionCreate", async (interaction) => {
                 await i.update({ content: rysujJezioro(), components: [przyciskiLowienia(false)] });
             } catch (error) {
                 console.error("Błąd w /łowienie:", error);
+            }
+        });
+    }
+
+    if (interaction.commandName === "automat") {
+        await interaction.deferReply();
+
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "automat", KOMENDY_COOLDOWN_MS.automat);
+        if (cooldown) {
+            await interaction.editReply({ content: cooldown });
+            return;
+        }
+
+        const AUTOMAT_CZAS_MS = 30000;
+        const AUTOMAT_SZEROKOSC = 5;
+        const AUTOMAT_SZANSA_CHWYTU = 0.35;
+        const AUTOMAT_COOLDOWN_CHWYTU_MS = 1200;
+
+        let pozycja = 2;
+        let zlapane = false;
+        let koniecAutomatu = false;
+        let ostatniChwyt = 0;
+        let komunikat = "";
+        const koniecCzasu = Date.now() + AUTOMAT_CZAS_MS;
+
+        const losujNagrode = () => {
+            let nowa;
+            do {
+                nowa = Math.floor(Math.random() * AUTOMAT_SZEROKOSC);
+            } while (nowa === pozycja);
+            return nowa;
+        };
+        let nagroda = losujNagrode();
+
+        const rysujAutomat = () => {
+            const pozostaloS = Math.max(0, Math.ceil((koniecCzasu - Date.now()) / 1000));
+            const rzadSzczypiec = Array.from({ length: AUTOMAT_SZEROKOSC }, (_, i) => (i === pozycja ? "🪝" : "⬜")).join("");
+            const rzadNagrod = Array.from({ length: AUTOMAT_SZEROKOSC }, (_, i) => (i === nagroda ? "🧸" : "⬛")).join("");
+            return `🕹️ **Automat z zabawkami** - ${interaction.user.username}\nZłap zabawkę zanim skończy się czas! Najedź szczypcami nad zabawkę i kliknij **Chwyć** - szczypce bywają kapryśne, więc nawet trafienie w zabawkę nie gwarantuje udanego chwytu (~${Math.round(AUTOMAT_SZANSA_CHWYTU * 100)}% szans).\n\n${rzadSzczypiec}\n${rzadNagrod}\n🟪🟪🟪🟪🟪\n\n🧸 Złapane: **${zlapane ? 1 : 0}/1** | ⏱️ Pozostało: **${pozostaloS}s**${komunikat ? `\n\n${komunikat}` : ""}`;
+        };
+
+        const przyciskiAutomatu = (wylaczone) => new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("automat_lewo").setLabel("⬅️").setStyle(ButtonStyle.Primary).setDisabled(wylaczone),
+            new ButtonBuilder().setCustomId("automat_chwyc").setLabel("🦾 Chwyć").setStyle(ButtonStyle.Success).setDisabled(wylaczone),
+            new ButtonBuilder().setCustomId("automat_prawo").setLabel("➡️").setStyle(ButtonStyle.Primary).setDisabled(wylaczone),
+        );
+
+        const wiadomoscAutomatu = await interaction.editReply({
+            content: rysujAutomat(),
+            components: [przyciskiAutomatu(false)],
+        });
+
+        const collectorAutomatu = wiadomoscAutomatu.createMessageComponentCollector({
+            filter: (i) => i.user.id === interaction.user.id,
+            time: AUTOMAT_CZAS_MS + 5000,
+        });
+
+        const zakonczAutomat = async (wygrana) => {
+            if (koniecAutomatu) return;
+            koniecAutomatu = true;
+            clearInterval(interwalZegaraAutomatu);
+            clearTimeout(timeoutAutomatu);
+            collectorAutomatu.stop();
+
+            if (wygrana) {
+                zlapane = true;
+                const nagrodaAutomatu = losowaLiczba(1, 10);
+                await addSolidDice(interaction.user.id, interaction.guild.id, nagrodaAutomatu);
+                await interaction.editReply({
+                    content: rysujAutomat() + `\n\n🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!`,
+                    components: [przyciskiAutomatu(true)],
+                }).catch(() => {});
+            } else {
+                const strata = losowaLiczba(1, 5);
+                const saldo = await getSolidDice(interaction.user.id, interaction.guild.id);
+                const realnaStrata = Math.min(strata, saldo);
+                if (realnaStrata > 0) {
+                    await db.execute({
+                        sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
+                        args: [realnaStrata, interaction.user.id, interaction.guild.id],
+                    });
+                }
+                await interaction.editReply({
+                    content: rysujAutomat() + `\n\n🧸💨 **Czas minął!** Szczypce nie złapały zabawki. Tracisz **-${realnaStrata}** <:Red_roll:1512521789748547715>.`,
+                    components: [przyciskiAutomatu(true)],
+                }).catch(() => {});
+            }
+        };
+
+        const timeoutAutomatu = setTimeout(() => zakonczAutomat(false), AUTOMAT_CZAS_MS);
+        const interwalZegaraAutomatu = setInterval(() => {
+            if (!koniecAutomatu) interaction.editReply({ content: rysujAutomat(), components: [przyciskiAutomatu(false)] }).catch(() => {});
+        }, 3000);
+
+        collectorAutomatu.on("collect", async (i) => {
+            try {
+                if (koniecAutomatu) {
+                    await i.deferUpdate().catch(() => {});
+                    return;
+                }
+
+                komunikat = "";
+
+                if (i.customId === "automat_lewo") pozycja = Math.max(0, pozycja - 1);
+                else if (i.customId === "automat_prawo") pozycja = Math.min(AUTOMAT_SZEROKOSC - 1, pozycja + 1);
+                else if (i.customId === "automat_chwyc") {
+                    const teraz = Date.now();
+                    if (teraz - ostatniChwyt < AUTOMAT_COOLDOWN_CHWYTU_MS) {
+                        komunikat = "⏳ Szczypce się jeszcze resetują...";
+                    } else {
+                        ostatniChwyt = teraz;
+                        if (pozycja === nagroda && Math.random() < AUTOMAT_SZANSA_CHWYTU) {
+                            await i.deferUpdate().catch(() => {});
+                            await zakonczAutomat(true);
+                            return;
+                        } else if (pozycja === nagroda) {
+                            komunikat = "😬 Szczypce się ześlizgnęły! Zabawka umyka gdzie indziej...";
+                            nagroda = losujNagrode();
+                        } else {
+                            komunikat = "❌ Pudło - szczypce chwyciły powietrze!";
+                        }
+                    }
+                }
+
+                await i.update({ content: rysujAutomat(), components: [przyciskiAutomatu(false)] });
+            } catch (error) {
+                console.error("Błąd w /automat:", error);
             }
         });
     }
