@@ -57,6 +57,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/kawiarnia` | Collect Solid Dice accumulated at the café (1/h, capped at 48) | none |
 | `/wyścig` | Drive a car and dodge obstacles to reach the finish line | 30 min |
 | `/łowienie` | Catch 3 fish before time runs out | 10 min |
+| `/automat` | Grab a toy in the claw machine before time runs out | 10 min |
 | `/roll` | Roll 10 items for 10 Solid Dice | none |
 | `/mahjong` | Play NTE Mahjong - solo with bots or multiplayer up to 4 players | 1h |
 | `/skiny` | Buy character skins from the shop with Solid Dice | none |

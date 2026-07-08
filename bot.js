@@ -2048,7 +2048,7 @@ client.on("interactionCreate", async (interaction) => {
             return;
         }
 
-        const AUTOMAT_CZAS_MS = 30000;
+        const AUTOMAT_CZAS_MS = 12000;
         const AUTOMAT_SZEROKOSC = 5;
         const AUTOMAT_SZANSA_CHWYTU = 0.35;
         const AUTOMAT_COOLDOWN_CHWYTU_MS = 1200;

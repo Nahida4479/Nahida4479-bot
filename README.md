@@ -60,6 +60,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/kawiarnia` | Odbierz Solid Dice zgromadzone w kawiarni (1/h, magazyn max 48) | brak |
 | `/wyścig` | Prowadź samochód i omijaj przeszkody, żeby dojechać do mety | 30 min |
 | `/łowienie` | Złap 3 ryby zanim skończy się czas | 10 min |
+| `/automat` | Złap zabawkę w automacie zanim skończy się czas | 10 min |
 | `/roll` | Wylosuj 10 przedmiotów za 10 Solid Dice | brak |
 | `/mahjong` | Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób | 1h |
 | `/skiny` | Kup skiny postaci w sklepie za Solid Dice | brak |
