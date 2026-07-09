@@ -7,11 +7,14 @@ import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuil
 import { db, initDB } from "./create-database-table.js";
 import { rozpocznijMajong } from "./majong.js";
 
-// Na części hostingów (np. niedziałający/zablokowany wychodzący IPv6) Node
-// domyślnie i tak najpierw próbuje adresu IPv6 z DNS i wisi na connect
-// timeout zamiast od razu spróbować IPv4 - stąd błędy typu ConnectTimeoutError
-// do discord.com/Turso mimo że sieć IPv4 działa poprawnie.
-setDefaultResultOrder("ipv4first");
+// Nest i Raspberry Pi mogą mieć różne sieci (np. Nest bywa IPv6-only, Pi ma
+// zwykle IPv4) - jeśli Node próbuje najpierw adresu z rodziny, która na danym
+// hoście nie działa, połączenia z discord.com/Turso wiszą na ConnectTimeoutError.
+// Ustaw w .env "dns_order=ipv6first" albo "dns_order=ipv4first", żeby wymusić
+// właściwą kolejność na danym hoście - bez tego Node używa swojej domyślnej.
+if (process.env.dns_order === "ipv4first" || process.env.dns_order === "ipv6first") {
+    setDefaultResultOrder(process.env.dns_order);
+}
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
 

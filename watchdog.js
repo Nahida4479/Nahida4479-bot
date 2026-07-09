@@ -34,9 +34,11 @@ import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import "dotenv/config";
 
-// Patrz komentarz w bot.js - część hostingów ma niedziałający wychodzący IPv6,
-// co bez tego objawia się jako ConnectTimeoutError mimo sprawnego IPv4.
-setDefaultResultOrder("ipv4first");
+// Patrz komentarz w bot.js - kolejność rodziny adresów DNS ustawiana przez
+// dns_order w .env (ipv4first / ipv6first), bo Nest i Pi mogą mieć różne sieci.
+if (process.env.dns_order === "ipv4first" || process.env.dns_order === "ipv6first") {
+    setDefaultResultOrder(process.env.dns_order);
+}
 
 const PROG_AWARII_MS = 60 * 1000; // Nest uznany za martwy po tylu ms bez heartbeatu
 const PROG_SPRAWDZANIA_MS = 20 * 1000; // co ile watchdog sprawdza stan
