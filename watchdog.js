@@ -14,8 +14,8 @@
 //   url_db, token_db        - te same co w bot.js (wspólna baza z Nestem)
 //   email_user              - adres Gmail, z którego wysyłane są maile
 //   email_pass              - "hasło aplikacji" Gmail (https://myaccount.google.com/apppasswords)
+//   email_do                - adres odbiorcy powiadomień (bez tego watchdog nie wyśle maila)
 // Opcjonalne:
-//   email_do                - adres odbiorcy (domyślnie szymon.cyb13@gmail.com)
 //   bot_dir                 - katalog z bot.js na Pi (domyślnie /home/pi/bot-java)
 //   pm2_process_name        - nazwa procesu pm2 dla bota (domyślnie Nahida-js)
 
@@ -29,7 +29,11 @@ const PROG_SPRAWDZANIA_MS = 20 * 1000; // co ile watchdog sprawdza stan
 
 const BOT_DIR = process.env.bot_dir || "/home/pi/bot-java";
 const NAZWA_PROCESU = process.env.pm2_process_name || "Nahida-js";
-const EMAIL_DO = process.env.email_do || "szymon.cyb13@gmail.com";
+const EMAIL_DO = process.env.email_do || null;
+
+if (!EMAIL_DO) {
+    console.warn("[watchdog] Brak email_do w .env - powiadomienia mailowe o awarii/powrocie nie będą wysyłane.");
+}
 
 const db = createClient({
     url: process.env.url_db,
@@ -45,6 +49,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function wyslijMaila(temat, tresc) {
+    if (!EMAIL_DO) return;
     try {
         await transporter.sendMail({
             from: process.env.email_user,
