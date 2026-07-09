@@ -80,6 +80,90 @@ client.once("ready", async () => {
         ),
 
         new SlashCommandBuilder()
+        .setName("panel")
+        .setDescription("[Administracja bota] Panel zarządzania graczem - Solid Dice, cooldowny, ranking, skiny")
+        .addSubcommand((sub) => sub
+            .setName("dodaj-dice")
+            .setDescription("Dodaj Solid Dice graczowi")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+            .addIntegerOption((opt) => opt.setName("ilosc").setDescription("Ilość Solid Dice do dodania").setRequired(true).setMinValue(1))
+        )
+        .addSubcommand((sub) => sub
+            .setName("zabierz-dice")
+            .setDescription("Zabierz Solid Dice graczowi")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+            .addIntegerOption((opt) => opt.setName("ilosc").setDescription("Ilość Solid Dice do zabrania").setRequired(true).setMinValue(1))
+        )
+        .addSubcommand((sub) => sub
+            .setName("odnow-cooldown")
+            .setDescription("Zresetuj cooldown gracza do pełnego czasu (jakby właśnie użył komendy)")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+            .addStringOption((opt) => opt.setName("komenda").setDescription("Komenda").setRequired(true).addChoices(
+                { name: "/daily", value: "daily" },
+                { name: "/work", value: "work" },
+                { name: "/pinkpawsheist", value: "pinkpawsheist" },
+                { name: "/wyścig", value: "wyścig" },
+                { name: "/łowienie", value: "łowienie" },
+                { name: "/mahjong", value: "mahjong" },
+                { name: "/automat", value: "automat" },
+            ))
+        )
+        .addSubcommand((sub) => sub
+            .setName("zresetuj-cooldown")
+            .setDescription("Zresetuj cooldown gracza do 0 - może użyć komendy od razu")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+            .addStringOption((opt) => opt.setName("komenda").setDescription("Komenda").setRequired(true).addChoices(
+                { name: "/daily", value: "daily" },
+                { name: "/work", value: "work" },
+                { name: "/pinkpawsheist", value: "pinkpawsheist" },
+                { name: "/wyścig", value: "wyścig" },
+                { name: "/łowienie", value: "łowienie" },
+                { name: "/mahjong", value: "mahjong" },
+                { name: "/automat", value: "automat" },
+            ))
+        )
+        .addSubcommand((sub) => sub
+            .setName("zablokuj-ranking")
+            .setDescription("Zablokuj wyświetlanie gracza w /nteleaderboard")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+        )
+        .addSubcommand((sub) => sub
+            .setName("odblokuj-ranking")
+            .setDescription("Odblokuj wyświetlanie gracza w /nteleaderboard")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+        )
+        .addSubcommand((sub) => sub
+            .setName("nadaj-skina")
+            .setDescription("Nadaj graczowi skina za darmo")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+            .addStringOption((opt) => opt.setName("skin").setDescription("Skin").setRequired(true).addChoices(
+                { name: "Nanally (Nanally_skin.jpg)", value: "Nanally_skin.jpg" },
+                { name: "Nanally (Nanally3.jpg)", value: "Nanally3.jpg" },
+                { name: "Nanally (Nanally4.jpg)", value: "Nanally4.jpg" },
+                { name: "Nanally (Nanally5.jpg)", value: "Nanally5.jpg" },
+                { name: "Chiz (Chiz2.jpg)", value: "Chiz2.jpg" },
+                { name: "Chiz (Chiz3.jpg)", value: "Chiz3.jpg" },
+                { name: "Daffodill (Daffodill2.jpg)", value: "Daffodill2.jpg" },
+                { name: "Fadia (Fadia2.jpg)", value: "Fadia2.jpg" },
+                { name: "Hotori (Hotori3.jpg)", value: "Hotori3.jpg" },
+                { name: "Jiuyuan (Jiuyuan2.jpg)", value: "Jiuyuan2.jpg" },
+                { name: "Mint (Mint1.jpg)", value: "Mint1.jpg" },
+                { name: "Mint (Mint3.jpg)", value: "Mint3.jpg" },
+                { name: "Sakiri (Sakiri2.jpg)", value: "Sakiri2.jpg" },
+                { name: "MC (m_mc1.jpg)", value: "m_mc1.jpg" },
+                { name: "MC (m_mc2.jpg)", value: "m_mc2.jpg" },
+                { name: "MC (m_mc3.jpg)", value: "m_mc3.jpg" },
+                { name: "MC (m_mc4.jpg)", value: "m_mc4.jpg" },
+                { name: "MC (m_mc5.jpg)", value: "m_mc5.jpg" },
+            ))
+        )
+        .addSubcommand((sub) => sub
+            .setName("info")
+            .setDescription("Podgląd Solid Dice, cooldownów, rankingu i bonusu gracza")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+        ),
+
+        new SlashCommandBuilder()
         .setName("nteleaderboard")
         .setDescription("Tabela wyświetlające graczy według łącznej sumy zdobytych Solid Dice"),
 
@@ -300,11 +384,41 @@ async function checkcooldown(userId, guildId, komenda, cooldownMs) {
     return null;
 }
 
+// Odczytuje pozostały czas cooldownu bez go modyfikować (w przeciwieństwie do
+// checkcooldown, które przy braku cooldownu od razu zapisuje "użycie" komendy) -
+// używane przez /panel info do podglądu stanu gracza.
+async function pobierzPozostalyCooldown(userId, guildId, komenda, cooldownMs) {
+    const wynik = await db.execute({
+        sql: "SELECT ostatnio FROM cooldowny WHERE user_id = ? AND guild_id = ? AND komenda = ?",
+        args: [userId, guildId, komenda],
+    });
+    if (wynik.rows.length === 0) return 0;
+    const ostatnio = Number(wynik.rows[0].ostatnio);
+    return Math.max(0, cooldownMs - (Date.now() - ostatnio));
+}
+
 // Uprawnienia administracyjne bota - właściciele bota, osoby z uprawnieniem
 // Administrator na danym serwerze, oraz osoby z rolą ustawioną przez /administracja
 async function czyAdministratorBota(interaction) {
     if (OWNER_IDS.includes(interaction.user.id)) return true;
     if (interaction.member.permissions.has(PermissionFlagsBits.Administrator)) return true;
+
+    const wynik = await db.execute({
+        sql: "SELECT rola_id FROM administracja WHERE guild_id = ?",
+        args: [interaction.guild.id],
+    });
+    if (wynik.rows.length === 0) return false;
+
+    const rolaId = wynik.rows[0].rola_id;
+    return rolaId ? interaction.member.roles.cache.has(rolaId) : false;
+}
+
+// Dostęp do /panel - węższy niż czyAdministratorBota: tylko administracja bota
+// (OWNER_IDS) i osoby z rolą przypisaną przez /administracja. Bez ogólnego
+// uprawnienia Discordowego "Administrator", bo /panel pozwala dawać/zabierać
+// Solid Dice, cooldowny i skiny - zbyt potężne dla każdego administratora serwera.
+async function czyMaDostepDoPanelu(interaction) {
+    if (OWNER_IDS.includes(interaction.user.id)) return true;
 
     const wynik = await db.execute({
         sql: "SELECT rola_id FROM administracja WHERE guild_id = ?",
@@ -1909,6 +2023,132 @@ client.on("interactionCreate", async (interaction) => {
         }
     }
 
+    if (interaction.commandName === "panel") {
+        await interaction.deferReply({ ephemeral: true });
+
+        if (!(await czyMaDostepDoPanelu(interaction))) {
+            await interaction.editReply({ content: "❗ Nie masz uprawnień" });
+            return;
+        }
+
+        const podkomenda = interaction.options.getSubcommand();
+        const user = interaction.options.getUser("uzytkownik");
+
+        if (podkomenda === "dodaj-dice") {
+            const ilosc = interaction.options.getInteger("ilosc");
+            await addSolidDice(user.id, interaction.guild.id, ilosc);
+            await interaction.editReply({ content: `✅ Dodano **${ilosc}** <:Red_roll:1512521789748547715> graczowi ${user}.` });
+            return;
+        }
+
+        if (podkomenda === "zabierz-dice") {
+            const ilosc = interaction.options.getInteger("ilosc");
+            const saldo = await getSolidDice(user.id, interaction.guild.id);
+            const realnaIlosc = Math.min(ilosc, saldo);
+            await db.execute({
+                sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
+                args: [realnaIlosc, user.id, interaction.guild.id],
+            });
+            await interaction.editReply({ content: `✅ Zabrano **${realnaIlosc}** <:Red_roll:1512521789748547715> graczowi ${user}${realnaIlosc < ilosc ? ` (miał tylko ${saldo})` : ""}.` });
+            return;
+        }
+
+        if (podkomenda === "odnow-cooldown") {
+            const komenda = interaction.options.getString("komenda");
+            const teraz = Date.now();
+            await db.execute({
+                sql: "INSERT INTO cooldowny (user_id, guild_id, komenda, ostatnio, powiadomiono) VALUES (?, ?, ?, ?, 0) ON CONFLICT(user_id, guild_id, komenda) DO UPDATE SET ostatnio = ?, powiadomiono = 0",
+                args: [user.id, interaction.guild.id, komenda, teraz, teraz],
+            });
+            await interaction.editReply({ content: `✅ Cooldown \`/${komenda}\` dla ${user} zresetowany do pełnego czasu (jakby właśnie użył/a komendy).` });
+            return;
+        }
+
+        if (podkomenda === "zresetuj-cooldown") {
+            const komenda = interaction.options.getString("komenda");
+            await db.execute({
+                sql: "DELETE FROM cooldowny WHERE user_id = ? AND guild_id = ? AND komenda = ?",
+                args: [user.id, interaction.guild.id, komenda],
+            });
+            await interaction.editReply({ content: `✅ Cooldown \`/${komenda}\` dla ${user} zresetowany do 0 - może użyć komendy od razu.` });
+            return;
+        }
+
+        if (podkomenda === "zablokuj-ranking") {
+            await db.execute({
+                sql: "INSERT INTO nteleaderboard_blokada (user_id, guild_id) VALUES (?, ?) ON CONFLICT(user_id, guild_id) DO NOTHING",
+                args: [user.id, interaction.guild.id],
+            });
+            await interaction.editReply({ content: `✅ ${user} nie będzie już wyświetlany/a w \`/nteleaderboard\`.` });
+            return;
+        }
+
+        if (podkomenda === "odblokuj-ranking") {
+            await db.execute({
+                sql: "DELETE FROM nteleaderboard_blokada WHERE user_id = ? AND guild_id = ?",
+                args: [user.id, interaction.guild.id],
+            });
+            await interaction.editReply({ content: `✅ ${user} może być teraz ponownie wyświetlany/a w \`/nteleaderboard\`.` });
+            return;
+        }
+
+        if (podkomenda === "nadaj-skina") {
+            const plik = interaction.options.getString("skin");
+            try {
+                await db.execute({
+                    sql: "INSERT INTO skiny_gracza (user_id, guild_id, plik) VALUES (?, ?, ?)",
+                    args: [user.id, interaction.guild.id, plik],
+                });
+                await interaction.editReply({ content: `✅ Nadano skina \`${plik}\` graczowi ${user}.` });
+            } catch (err) {
+                await interaction.editReply({ content: `❗ ${user} już posiada ten skin.` });
+            }
+            return;
+        }
+
+        if (podkomenda === "info") {
+            const solidDice = await getSolidDice(user.id, interaction.guild.id);
+            const ekonomia = await db.execute({
+                sql: "SELECT solid_dice_total FROM ekonomia WHERE user_id = ? AND guild_id = ?",
+                args: [user.id, interaction.guild.id],
+            });
+            const solidDiceTotal = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice_total) : 0;
+
+            const maBypass = await czyMaBypassCooldown(user.id, interaction.guild.id);
+            const zablokowanyWynik = await db.execute({
+                sql: "SELECT 1 FROM nteleaderboard_blokada WHERE user_id = ? AND guild_id = ?",
+                args: [user.id, interaction.guild.id],
+            });
+            const zablokowanyRanking = zablokowanyWynik.rows.length > 0;
+
+            const aktywnyBonus = await pobierzAktywnySkinIBonus(user.id, interaction.guild.id);
+
+            const cooldownyTekst = maBypass
+                ? "Bypass aktywny - brak cooldownów"
+                : (await Promise.all(Object.entries(KOMENDY_COOLDOWN_MS).map(async ([komenda, ms]) => {
+                    const pozostalo = await pobierzPozostalyCooldown(user.id, interaction.guild.id, komenda, ms);
+                    if (pozostalo <= 0) return `\`/${komenda}\` - gotowe`;
+                    const godziny = Math.floor(pozostalo / 3600000);
+                    const minuty = Math.floor((pozostalo % 3600000) / 60000);
+                    const sekundy = Math.floor((pozostalo % 60000) / 1000);
+                    return `\`/${komenda}\` - ${godziny}h ${minuty}m ${sekundy}s`;
+                }))).join("\n");
+
+            const embed = new EmbedBuilder()
+                .setColor(0x5865F2)
+                .setTitle(`🛠️ Panel - ${user.username}`)
+                .addFields(
+                    { name: "💰 Solid Dice", value: `Aktualnie: ${solidDice}\nŁącznie zdobyte: ${solidDiceTotal}`, inline: false },
+                    { name: "⏱️ Cooldowny", value: cooldownyTekst, inline: false },
+                    { name: "🏆 Ranking", value: zablokowanyRanking ? "Zablokowany w /nteleaderboard" : "Widoczny w /nteleaderboard", inline: true },
+                    { name: "✨ Aktywny bonus", value: aktywnyBonus ? `${aktywnyBonus.bonus.nazwaBonusu} (${aktywnyBonus.nazwa})` : "Brak", inline: true },
+                );
+
+            await interaction.editReply({ embeds: [embed] });
+            return;
+        }
+    }
+
     if (interaction.commandName === "administracja") {
         await interaction.deferReply({ ephemeral: true });
 
@@ -2006,8 +2246,10 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const wynik = await db.execute ({
-            sql: "SELECT user_id, solid_dice_total FROM ekonomia WHERE guild_id = ? ORDER BY solid_dice_total DESC LIMIT 10",
-            args: [interaction.guild.id],
+            sql: `SELECT user_id, solid_dice_total FROM ekonomia
+                  WHERE guild_id = ? AND user_id NOT IN (SELECT user_id FROM nteleaderboard_blokada WHERE guild_id = ?)
+                  ORDER BY solid_dice_total DESC LIMIT 10`,
+            args: [interaction.guild.id, interaction.guild.id],
         });
 
         if (wynik.rows.length === 0) {
@@ -2887,12 +3129,14 @@ if (interaction.commandName === "skiny") {
         const embed = new EmbedBuilder()
             .setColor(0x2ECC71)
             .setTitle("Sklep ze skinami")
-            .setDescription(`Masz **${solidDice}** <:Red_roll:1512521789748547715> w swoim portfelu.\n\n💡 Ceny zmieniają się losowo co 2 godziny, niezależnie dla każdego skina (±5-50% od ceny bazowej).`);
+            .setDescription(`Masz **${solidDice}** <:Red_roll:1512521789748547715> w swoim portfelu.\n\n💡 Ceny zmieniają się losowo co 2 godziny, niezależnie dla każdego skina - mogą zwiększyć się o 5%-50% lub zmniejszyć się o 5%-50% od ceny bazowej.`);
 
         if (skin) {
             const cena = await cenaSkina(skin);
             const bonus = BONUSY_SKINOW[skin.plik];
+            const cenaBazowa = bonus?.cenaBazowa ?? CENA_SKINA;
             embed.setImage(`attachment://${skin.plik}`);
+            embed.addFields({ name: "💰 Cena bazowa", value: `${cenaBazowa} Solid Dice (aktualna cena: ${cena} Solid Dice - żeby wiedzieć, czy warto kupować teraz)` });
             if (bonus) {
                 embed.addFields({ name: `✨ Bonus: ${bonus.nazwaBonusu}`, value: bonus.opis });
             }

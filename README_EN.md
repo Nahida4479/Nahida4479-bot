@@ -77,6 +77,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/removecooldown` | Toggle a permanent cooldown bypass for a player *(bot administration)* |
 | `/addskin` | Add or update a skin in `/skiny` *(bot administration)* |
 | `/mammonevent` | Instantly summon Mammon in the channel set via `/ntegra` *(bot administration)* |
+| `/panel` | Manage a player: Solid Dice, cooldowns, leaderboard, skins *(bot administration)* |
 
 ---
 

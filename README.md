@@ -80,6 +80,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/removecooldown` | Włącz/wyłącz permanentny bypass cooldownów dla gracza *(administracja bota)* |
 | `/addskin` | Dodaj lub zaktualizuj skin w `/skiny` *(administracja bota)* |
 | `/mammonevent` | Natychmiast przywołaj Mammona na kanale ustawionym w `/ntegra` *(administracja bota)* |
+| `/panel` | Zarządzaj graczem: Solid Dice, cooldowny, ranking, skiny *(administracja bota)* |
 
 ---
 

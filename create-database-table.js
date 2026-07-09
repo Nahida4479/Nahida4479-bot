@@ -89,6 +89,12 @@ export async function initDB() {
             PRIMARY KEY (user_id, guild_id)
         )`);
 
+        await db.execute(`CREATE TABLE IF NOT EXISTS nteleaderboard_blokada (
+            user_id TEXT,
+            guild_id TEXT,
+            PRIMARY KEY (user_id, guild_id)
+        )`);
+
         await db.execute(`CREATE TABLE IF NOT EXISTS skiny (
             plik TEXT PRIMARY KEY,
             nazwa TEXT NOT NULL,
