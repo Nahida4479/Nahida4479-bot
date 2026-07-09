@@ -24,6 +24,8 @@
 //                             jeśli na Pi działają inne, niepowiązane boty pod pm2, ich nazwa nie może
 //                             się pokrywać z tą wartością, bo watchdog może tym procesem zarządzać
 //                             (restartować/zatrzymywać/usuwać i tworzyć od nowa).
+//   prog_awarii_ms          - po ilu ms braku heartbeatu od Nesta uznać go za martwy (domyślnie 180000 = 3 min)
+//   prog_sprawdzania_ms     - co ile ms watchdog sprawdza stan (domyślnie 20000 = 20s)
 
 import { setDefaultResultOrder } from "node:dns";
 import { createClient } from "@libsql/client";
@@ -40,8 +42,12 @@ if (process.env.dns_order === "ipv4first" || process.env.dns_order === "ipv6firs
     setDefaultResultOrder(process.env.dns_order);
 }
 
-const PROG_AWARII_MS = 60 * 1000; // Nest uznany za martwy po tylu ms bez heartbeatu
-const PROG_SPRAWDZANIA_MS = 20 * 1000; // co ile watchdog sprawdza stan
+// Domyślnie 3 minuty tolerancji - Nest bywa niestabilny sieciowo pod obciążeniem
+// (chwilowe zawieszki na kilkadziesiąt sekund), więc krótszy próg wywoływał
+// niepotrzebny failover na Pi mimo że Nest za chwilę wracał do normy.
+// Konfigurowalne przez prog_awarii_ms w .env, gdyby dalej było za czule/za wolno.
+const PROG_AWARII_MS = Number(process.env.prog_awarii_ms) || 3 * 60 * 1000;
+const PROG_SPRAWDZANIA_MS = Number(process.env.prog_sprawdzania_ms) || 20 * 1000; // co ile watchdog sprawdza stan
 
 // Domyślnie katalog tego pliku - watchdog.js zawsze leży obok bot.js w tym samym
 // repo, więc to jest odporne na zmianę nazwy/lokalizacji katalogu repo na Pi
