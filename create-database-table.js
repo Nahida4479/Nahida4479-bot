@@ -18,13 +18,33 @@ export class DbTimeoutError extends Error {
 }
 
 const DB_TIMEOUT_MS = Number(process.env.db_timeout_ms) || 8000;
+// Sieciowe zerwania bywają krótkie (kilka sekund) - zanim uznamy zapytanie za
+// martwe, próbujemy je powtórzyć. Widzieliśmy realne przypadki gdzie próba w
+// sekundzie X zawodziła, a ta sama w sekundzie X+1 przechodziła bez problemu.
+const DB_PROBY = Number(process.env.db_retries) || 2;
+const DB_ODSTEP_PROB_MS = Number(process.env.db_retry_delay_ms) || 1000;
+
 const oryginalneExecute = db.execute.bind(db);
-db.execute = (...args) => {
+
+function wykonajZLimitem(args) {
     let timer;
     const limitCzasu = new Promise((_, reject) => {
         timer = setTimeout(() => reject(new DbTimeoutError()), DB_TIMEOUT_MS);
     });
     return Promise.race([oryginalneExecute(...args), limitCzasu]).finally(() => clearTimeout(timer));
+}
+
+db.execute = async (...args) => {
+    let ostatniBlad;
+    for (let proba = 1; proba <= DB_PROBY; proba++) {
+        try {
+            return await wykonajZLimitem(args);
+        } catch (err) {
+            ostatniBlad = err;
+            if (proba < DB_PROBY) await new Promise((r) => setTimeout(r, DB_ODSTEP_PROB_MS));
+        }
+    }
+    throw ostatniBlad;
 };
 
 // Każdy krok osobno w try/catch - żeby awaria jednej tabeli nie przerywała
