@@ -633,7 +633,21 @@ async function zakonczGre(gra, wynik, deps) {
                 bonus = " (w tym +50 za wygraną)";
             }
             await deps.addSolidDice(gracz.id, gra.guildId, nagroda);
-            podsumowanie += `<@${gracz.id}> +${nagroda} <:Red_roll:1512521789748547715>${bonus}\n`;
+
+            // Bonus postaci - "mahjong_extra_sd" (np. Mint) dolicza się za każdą
+            // dokończoną partię niezależnie od nagrody, resztę (np. reward_prog_extra
+            // Nanally) sprawdza wspólny helper z bot.js
+            let bonusPostaciTekst = "";
+            const aktywny = await deps.pobierzAktywnySkinIBonus(gracz.id, gra.guildId);
+            if (aktywny?.bonus.typ === "mahjong_extra_sd") {
+                await deps.addSolidDice(gracz.id, gra.guildId, aktywny.bonus.wartosc);
+                bonusPostaciTekst = ` + **${aktywny.bonus.wartosc}** <:Red_roll:1512521789748547715> (bonus od **${aktywny.nazwa}** - ${aktywny.bonus.nazwaBonusu})`;
+            } else {
+                const { bonusTekst } = await deps.dodajBonusDoNagrody(gracz.id, gra.guildId, nagroda, aktywny);
+                if (bonusTekst) bonusPostaciTekst = ` + ${bonusTekst}`;
+            }
+
+            podsumowanie += `<@${gracz.id}> +${nagroda} <:Red_roll:1512521789748547715>${bonus}${bonusPostaciTekst}\n`;
         }
     }
 

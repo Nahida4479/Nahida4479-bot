@@ -91,14 +91,34 @@ export async function initDB() {
 
         await db.execute(`CREATE TABLE IF NOT EXISTS skiny (
             plik TEXT PRIMARY KEY,
-            nazwa TEXT NOT NULL
+            nazwa TEXT NOT NULL,
+            cena_aktualna INTEGER,
+            nastepna_zmiana_ceny INTEGER
         )`);
+
+        try {
+            await db.execute(`ALTER TABLE skiny ADD COLUMN cena_aktualna INTEGER`);
+        } catch (err) {
+            // kolumna już istnieje - baza była utworzona przed dodaniem dynamicznych cen
+        }
+        try {
+            await db.execute(`ALTER TABLE skiny ADD COLUMN nastepna_zmiana_ceny INTEGER`);
+        } catch (err) {
+            // kolumna już istnieje - baza była utworzona przed dodaniem dynamicznych cen
+        }
 
         await db.execute(`CREATE TABLE IF NOT EXISTS skiny_gracza (
             user_id TEXT,
             guild_id TEXT,
             plik TEXT,
             PRIMARY KEY (user_id, guild_id, plik)
+        )`);
+
+        await db.execute(`CREATE TABLE IF NOT EXISTS profil_wybrany_skin (
+            user_id TEXT,
+            guild_id TEXT,
+            plik TEXT,
+            PRIMARY KEY (user_id, guild_id)
         )`);
 
         const startoweSkiny = [

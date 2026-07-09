@@ -92,6 +92,13 @@ client.once("ready", async () => {
         .setDescription("Sprawdź swój plecak"),
 
         new SlashCommandBuilder()
+        .setName("profil")
+        .setDescription("Sprawdź profil (Solid Dice, aktywny bonus skina) swój albo innego gracza")
+        .addUserOption((opt) =>
+            opt.setName("uzytkownik").setDescription("Gracz, którego profil chcesz sprawdzić").setRequired(false)
+        ),
+
+        new SlashCommandBuilder()
         .setName("skiny")
         .setDescription("Kup skiny postaci za Solid Dice"),
 
@@ -322,11 +329,109 @@ async function getSolidDice(userId, guildId) {
 
 // Skiny postaci
 
-const CENA_SKINA = 100;
+// Bonus jest przypisany do postaci (nazwa), nie do konkretnego pliku skina - kilka
+// plików tej samej postaci (np. 4 skiny Nanally) dają dostęp do tego samego bonusu,
+// tylko inny wygląd do wyświetlenia. Ceny bazowe 1500-10000 Solid Dice, dopasowane
+// do siły bonusu - mocniejszy/bardziej uniwersalny bonus = wyższa cena.
+const BONUSY_POSTACI = {
+    "Hotori": {
+        cenaBazowa: 1500,
+        nazwaBonusu: "Szybsze łowienie",
+        opis: "Skraca cooldown `/łowienie` o 5 minut.",
+        typ: "cooldown_lowienie",
+        wartoscMs: 5 * 60 * 1000,
+    },
+    "Mint": {
+        cenaBazowa: 1800,
+        nazwaBonusu: "Szczęście przy stole",
+        opis: "Dodaje +3 Solid Dice za każdą dokończoną partię `/mahjong`.",
+        typ: "mahjong_extra_sd",
+        wartosc: 3,
+    },
+    "Chiz": {
+        cenaBazowa: 2000,
+        nazwaBonusu: "Szybszy wyścig",
+        opis: "Skraca cooldown `/wyścig` o 20 minut.",
+        typ: "cooldown_wyscig",
+        wartoscMs: 20 * 60 * 1000,
+    },
+    "Sakiri": {
+        cenaBazowa: 2500,
+        nazwaBonusu: "Szczęśliwa wędka",
+        opis: "Dodaje +5 Solid Dice za każdą wygraną w `/łowienie`.",
+        typ: "lowienie_extra_sd",
+        wartosc: 5,
+    },
+    "Fadia": {
+        cenaBazowa: 3500,
+        nazwaBonusu: "Furia Mammona",
+        opis: "Zwiększa obrażenia z ULT-a w walce z Mammonem o 50%.",
+        typ: "mammon_ult_procent",
+        wartosc: 0.5,
+    },
+    "Daffodill": {
+        cenaBazowa: 4500,
+        nazwaBonusu: "Wszechstronny odpoczynek",
+        opis: "Skraca cooldown wszystkich komend ekonomii o 5 minut.",
+        typ: "cooldown_wszystkie",
+        wartoscMs: 5 * 60 * 1000,
+    },
+    "Jiuyuan": {
+        cenaBazowa: 5000,
+        nazwaBonusu: "Nadgodziny",
+        opis: "10% szans na dodatkowe +25 Solid Dice po użyciu `/work`.",
+        typ: "work_szansa_extra",
+        szansa: 0.10,
+        wartosc: 25,
+    },
+    "Nanally": {
+        cenaBazowa: 6000,
+        nazwaBonusu: "Duży zarobek",
+        opis: "Dodaje +20 Solid Dice, gdy zdobyta nagroda wynosi 20 lub więcej Solid Dice.",
+        typ: "reward_prog_extra",
+        prog: 20,
+        wartosc: 20,
+    },
+    "MC": {
+        cenaBazowa: 10000,
+        nazwaBonusu: "Bez wytchnienia",
+        opis: "Zdejmuje cooldown ataku podczas walki z Mammonem.",
+        typ: "mammon_atak_bez_cooldownu",
+    },
+};
+
+const CENA_SKINA = 100; // domyślna cena bazowa dla skinów bez przypisanego bonusu w BONUSY_POSTACI
+const CENA_SKINA_ZMIANA_MS = 2 * 60 * 60 * 1000;
 
 async function getKatalogSkinow() {
-    const wynik = await db.execute("SELECT plik, nazwa FROM skiny ORDER BY nazwa ASC, plik ASC");
+    const wynik = await db.execute("SELECT plik, nazwa, cena_aktualna, nastepna_zmiana_ceny FROM skiny ORDER BY nazwa ASC, plik ASC");
     return wynik.rows;
+}
+
+// Cena danego skina waha się losowo (±5-50% od ceny bazowej postaci) i przelosowuje
+// się co 2 godziny, niezależnie dla każdego pliku - nawet dwa skiny tej samej postaci
+// mogą mieć w danym momencie różną aktualną cenę.
+async function cenaSkina(skinRow) {
+    const cenaBazowa = BONUSY_POSTACI[skinRow.nazwa]?.cenaBazowa ?? CENA_SKINA;
+    const teraz = Date.now();
+
+    if (skinRow.cena_aktualna && skinRow.nastepna_zmiana_ceny && teraz < Number(skinRow.nastepna_zmiana_ceny)) {
+        return Number(skinRow.cena_aktualna);
+    }
+
+    const procent = losowaLiczba(5, 50) / 100;
+    const znak = Math.random() < 0.5 ? -1 : 1;
+    const nowaCena = Math.max(1, Math.round(cenaBazowa * (1 + znak * procent)));
+    const nastepnaZmiana = teraz + CENA_SKINA_ZMIANA_MS;
+
+    await db.execute({
+        sql: "UPDATE skiny SET cena_aktualna = ?, nastepna_zmiana_ceny = ? WHERE plik = ?",
+        args: [nowaCena, nastepnaZmiana, skinRow.plik],
+    });
+
+    skinRow.cena_aktualna = nowaCena;
+    skinRow.nastepna_zmiana_ceny = nastepnaZmiana;
+    return nowaCena;
 }
 
 async function getPosiadaneSkiny(userId, guildId) {
@@ -348,30 +453,81 @@ async function getPosiadaneSkinyZNazwami(userId, guildId) {
     return wynik.rows;
 }
 
-async function kupSkina(userId, guildId, plik) {
+async function kupSkina(userId, guildId, skinRow) {
     const posiadane = await getPosiadaneSkiny(userId, guildId);
-    if (posiadane.has(plik)) return { sukces: false, powod: "posiadasz" };
+    if (posiadane.has(skinRow.plik)) return { sukces: false, powod: "posiadasz" };
 
+    const cena = await cenaSkina(skinRow);
     const solidDice = await getSolidDice(userId, guildId);
-    if (solidDice < CENA_SKINA) return { sukces: false, powod: "brak_srodkow" };
+    if (solidDice < cena) return { sukces: false, powod: "brak_srodkow", cena };
 
     await db.execute({
         sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
-        args: [CENA_SKINA, userId, guildId],
+        args: [cena, userId, guildId],
     });
 
     try {
         await db.execute({
             sql: "INSERT INTO skiny_gracza (user_id, guild_id, plik) VALUES (?, ?, ?)",
-            args: [userId, guildId, plik],
+            args: [userId, guildId, skinRow.plik],
         });
     } catch (err) {
         // ktoś kupił ten sam skin w tej samej chwili - zwróć Solid Dice
-        await addSolidDice(userId, guildId, CENA_SKINA);
+        await addSolidDice(userId, guildId, cena);
         return { sukces: false, powod: "posiadasz" };
     }
 
-    return { sukces: true };
+    return { sukces: true, cena };
+}
+
+// Aktywny bonus gracza - ustawiany przez /profil, tylko jeden na raz. Zwraca dane
+// bonusu razem z nazwą postaci i plikiem wybranego skina, albo null jeśli brak.
+async function pobierzAktywnySkinIBonus(userId, guildId) {
+    const wynik = await db.execute({
+        sql: `SELECT p.plik AS plik, s.nazwa AS nazwa FROM profil_wybrany_skin p
+              JOIN skiny_gracza sg ON sg.user_id = p.user_id AND sg.guild_id = p.guild_id AND sg.plik = p.plik
+              JOIN skiny s ON s.plik = p.plik
+              WHERE p.user_id = ? AND p.guild_id = ?`,
+        args: [userId, guildId],
+    });
+    if (wynik.rows.length === 0) return null;
+
+    const { plik, nazwa } = wynik.rows[0];
+    const bonus = BONUSY_POSTACI[nazwa];
+    if (!bonus) return null;
+
+    return { plik, nazwa, bonus };
+}
+
+// Skraca bazowy cooldown, jeśli aktywny bonus gracza dotyczy tej konkretnej komendy
+// albo wszystkich komend ekonomii naraz (typ cooldown_wszystkie).
+function efektywnyCooldownMs(komenda, bazowyCooldownMs, aktywny) {
+    if (!aktywny) return bazowyCooldownMs;
+    const { typ, wartoscMs } = aktywny.bonus;
+    if (typ === "cooldown_wszystkie") return Math.max(0, bazowyCooldownMs - wartoscMs);
+    if (typ === "cooldown_lowienie" && komenda === "łowienie") return Math.max(0, bazowyCooldownMs - wartoscMs);
+    if (typ === "cooldown_wyscig" && komenda === "wyścig") return Math.max(0, bazowyCooldownMs - wartoscMs);
+    return bazowyCooldownMs;
+}
+
+// Dolicza bonus "reward_prog_extra" do już przyznanej nagrody (baza musi być dodana
+// wcześniej przez wywołującego) - zwraca info do wyświetlenia w wiadomości.
+async function dodajBonusDoNagrody(userId, guildId, ilosc, aktywny) {
+    if (!aktywny || aktywny.bonus.typ !== "reward_prog_extra" || ilosc < aktywny.bonus.prog) {
+        return { bonusDodatkowy: 0, bonusTekst: null };
+    }
+    const bonusDodatkowy = aktywny.bonus.wartosc;
+    await addSolidDice(userId, guildId, bonusDodatkowy);
+    return {
+        bonusDodatkowy,
+        bonusTekst: `+${bonusDodatkowy} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywny.nazwa}** - ${aktywny.bonus.nazwaBonusu})`,
+    };
+}
+
+// Przyznaje bazową nagrodę i, jeśli dotyczy, dolicza do niej bonus postaci
+async function przyznajNagrode(userId, guildId, ilosc, aktywny) {
+    await addSolidDice(userId, guildId, ilosc);
+    return await dodajBonusDoNagrody(userId, guildId, ilosc, aktywny);
 }
 
 // Kawiarnia - produkuje 1 Solid Dice na godzinę, magazyn max 48
@@ -855,7 +1011,8 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
 
 function panelGraczaMammon(stan, gracz) {
     const info = MAMMON_ABILITKI[gracz.abilitka];
-    const naCooldownieAtaku = Date.now() - gracz.ostatniAtak < MAMMON_COOLDOWN_ATAK_MS;
+    const bezCooldownuAtaku = gracz.aktywnyBonus?.bonus.typ === "mammon_atak_bez_cooldownu";
+    const naCooldownieAtaku = !bezCooldownuAtaku && Date.now() - gracz.ostatniAtak < MAMMON_COOLDOWN_ATAK_MS;
     const naCooldownieUlt = Date.now() - gracz.ostatniaUlta < MAMMON_COOLDOWN_ULT_MS;
 
     const embed = new EmbedBuilder()
@@ -935,6 +1092,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
     for (const [userId, gracz] of listaGraczy) {
         let nagroda = 0;
         let bonus = 0;
+        let bonusPostaciTekst = null;
 
         if (pokonany) {
             if (gracz.ultyUzyte > 0) nagroda = losowaLiczba(60, 100);
@@ -946,8 +1104,9 @@ async function zakonczWalkeMammon(guildId, pokonany) {
             }
 
             if (nagroda > 0) {
-                await addSolidDice(userId, guildId, nagroda);
-                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} <:Red_roll:1512521789748547715> za TOP 3 obrażeń)` : ""}\n`;
+                const nagrodaWynik = await przyznajNagrode(userId, guildId, nagroda, gracz.aktywnyBonus);
+                bonusPostaciTekst = nagrodaWynik.bonusTekst;
+                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} <:Red_roll:1512521789748547715> za TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
             }
         }
 
@@ -962,7 +1121,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
                     {
                         name: "Nagroda",
                         value: nagroda > 0
-                            ? `**+${nagroda}** <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3)` : ""}`
+                            ? `**+${nagroda}** <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
                             : "Brak nagrody",
                         inline: false,
                     },
@@ -1118,9 +1277,9 @@ const HELP_STRONY = [
     {
         komenda: "/skiny",
         plik: "skiny",
-        opis: "Kup skiny postaci w sklepie, możesz je wyświetlić w /plecak w zakładce Skiny.",
-        zdobywasz: "Kosmetyczny skin na stałe",
-        tracisz: "Koszt 100 Solid Dice za skin",
+        opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy skin ma przypisany bonus postaci, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
+        zdobywasz: "Kosmetyczny skin na stałe + dostęp do bonusu jego postaci",
+        tracisz: "Aktualna cena skina (1500-10000 Solid Dice, zależnie od postaci) - sprawdź ją w sklepie przed kupnem",
         cooldown: "Brak",
     },
     {
@@ -1128,6 +1287,14 @@ const HELP_STRONY = [
         plik: "plecak",
         opis: "Podgląd Twojego konta: aktualne i łącznie zdobyte Solid Dice, miejsce w topce serwera, zebrane postacie z /roll oraz kupione skiny z /skiny.",
         zdobywasz: "Nie dotyczy - to tylko podgląd Twojego stanu konta",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
+    },
+    {
+        komenda: "/profil",
+        plik: "profil",
+        opis: "Sprawdź swój profil (lub profil innego gracza) - łączne Solid Dice i aktywny bonus postaci. Wybierz jeden z posiadanych skinów, aby aktywować jego bonus (można mieć aktywny tylko jeden na raz).",
+        zdobywasz: "Nie dotyczy - to tylko podgląd i wybór aktywnego bonusu",
         tracisz: "Nie dotyczy",
         cooldown: "Brak",
     },
@@ -1220,6 +1387,10 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply({ ephemeral: true });
 
         if (!stan.uczestnicy.has(interaction.user.id)) {
+            // Bonus postaci cache'owany przy dołączeniu (nie odpytujemy bazy przy
+            // każdym kliknięciu ataku - szczególnie ważne dla bonusu "bez cooldownu",
+            // który zachęca do bardzo częstego klikania)
+            const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
             stan.uczestnicy.set(interaction.user.id, {
                 ataki: 0,
                 ultyUzyte: 0,
@@ -1231,6 +1402,7 @@ client.on("interactionCreate", async (interaction) => {
                 abilitka: losowaAbilitkaMammona(),
                 abilitkaUzyta: false,
                 ostatniaInterakcja: interaction,
+                aktywnyBonus,
             });
             const n = stan.uczestnicy.size;
             const nowyMaxHp = MAMMON_HP_BAZA + n * MAMMON_HP_ZA_GRACZA;
@@ -1267,8 +1439,10 @@ client.on("interactionCreate", async (interaction) => {
         const teraz = Date.now();
         let cooldownUzytyMs = 0;
 
+        const bezCooldownuAtaku = gracz.aktywnyBonus?.bonus.typ === "mammon_atak_bez_cooldownu";
+
         if (interaction.customId === "mammon_atak") {
-            const pozostalo = MAMMON_COOLDOWN_ATAK_MS - (teraz - gracz.ostatniAtak);
+            const pozostalo = bezCooldownuAtaku ? 0 : MAMMON_COOLDOWN_ATAK_MS - (teraz - gracz.ostatniAtak);
             if (pozostalo > 0) {
                 await interaction.deferUpdate().catch(() => {});
                 return;
@@ -1278,7 +1452,7 @@ client.on("interactionCreate", async (interaction) => {
             if (gracz.ataki % 5 === 0) gracz.ultyDostepne++;
             stan.hp = Math.max(0, stan.hp - MAMMON_ATAK_OBRAZENIA);
             gracz.obrazeniaZadane += MAMMON_ATAK_OBRAZENIA;
-            cooldownUzytyMs = MAMMON_COOLDOWN_ATAK_MS;
+            cooldownUzytyMs = bezCooldownuAtaku ? 0 : MAMMON_COOLDOWN_ATAK_MS;
         } else {
             if (gracz.ultZablokowany) {
                 await interaction.reply({ content: "❗ Twoje ULT zostało zablokowane na tę walkę!", ephemeral: true });
@@ -1296,8 +1470,10 @@ client.on("interactionCreate", async (interaction) => {
             gracz.ostatniaUlta = teraz;
             gracz.ultyDostepne--;
             gracz.ultyUzyte++;
-            stan.hp = Math.max(0, stan.hp - MAMMON_ULT_OBRAZENIA);
-            gracz.obrazeniaZadane += MAMMON_ULT_OBRAZENIA;
+            const mnoznikUlt = gracz.aktywnyBonus?.bonus.typ === "mammon_ult_procent" ? 1 + gracz.aktywnyBonus.bonus.wartosc : 1;
+            const obrazeniaUlt = Math.round(MAMMON_ULT_OBRAZENIA * mnoznikUlt);
+            stan.hp = Math.max(0, stan.hp - obrazeniaUlt);
+            gracz.obrazeniaZadane += obrazeniaUlt;
             cooldownUzytyMs = MAMMON_COOLDOWN_ULT_MS;
         }
 
@@ -1547,7 +1723,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "wymiana", "animacje", "pingcooldown"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "profil", "wymiana", "animacje", "pingcooldown"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1560,13 +1736,14 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "daily") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", KOMENDY_COOLDOWN_MS.daily);
+        const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+        const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", efektywnyCooldownMs("daily", KOMENDY_COOLDOWN_MS.daily, aktywnyBonus));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
         }
         const ilosc = Math.floor(Math.random() * 5) + 10;
-        await addSolidDice(interaction.user.id, interaction.guild.id, ilosc);
+        const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
 
         const wiadomosci = [
             "Wykonałeś/aś codzienne misje",
@@ -1574,7 +1751,7 @@ client.on("interactionCreate", async (interaction) => {
             "Wbiłeś/aś do gry i wykonałeś/aś zadania",
             "Zalogowałeś/aś się do gry",
         ];
-        
+
         const wiadomosc = wiadomosci[Math.floor(Math.random() * wiadomosci.length)];
         const obrazek = new AttachmentBuilder("./Gra/Red_roll.jpg");
 
@@ -1582,7 +1759,7 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0x00FF00)
             .setTitle("<:Red_roll:1512521789748547715> Daily")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>`})
+            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.editReply({ embeds: [embed], files: [obrazek]});
@@ -1739,14 +1916,21 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "work") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", KOMENDY_COOLDOWN_MS.work);
+        const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", efektywnyCooldownMs("work", KOMENDY_COOLDOWN_MS.work, aktywnyBonus));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
         }
 
         const ilosc = Math.floor(Math.random() * 5) + 5;
-        await addSolidDice(interaction.user.id, interaction.guild.id, ilosc);
+        const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
+
+        let bonusNadgodzin = 0;
+        if (aktywnyBonus?.bonus.typ === "work_szansa_extra" && Math.random() < aktywnyBonus.bonus.szansa) {
+            bonusNadgodzin = aktywnyBonus.bonus.wartosc;
+            await addSolidDice(interaction.user.id, interaction.guild.id, bonusNadgodzin);
+        }
 
         const wiadomosci = [
             "Znalazłeś anomalie",
@@ -1774,7 +1958,7 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0x00FF00)
             .setTitle("<:Red_roll:1512521789748547715> Work")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>`}) 
+            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNadgodzin > 0 ? `\n+${bonusNadgodzin} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - Nadgodziny!)` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.editReply({ embeds: [embed], files: [obrazek] });
@@ -1809,7 +1993,8 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "wyścig") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", KOMENDY_COOLDOWN_MS["wyścig"]);
+        const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", efektywnyCooldownMs("wyścig", KOMENDY_COOLDOWN_MS["wyścig"], aktywnyBonus));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1909,9 +2094,9 @@ client.on("interactionCreate", async (interaction) => {
             }).catch(() => {});
         } else {
             const nagrodaWyscigu = losowaLiczba(5, 15);
-            await addSolidDice(interaction.user.id, interaction.guild.id, nagrodaWyscigu);
+            const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaWyscigu, aktywnyBonus);
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!`,
+                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}`,
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
@@ -1920,19 +2105,21 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "mahjong") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", KOMENDY_COOLDOWN_MS.mahjong);
+        const aktywnyBonusStartera = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", efektywnyCooldownMs("mahjong", KOMENDY_COOLDOWN_MS.mahjong, aktywnyBonusStartera));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
         }
-        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba });
+        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba, pobierzAktywnySkinIBonus, dodajBonusDoNagrody });
         return;
     }
 
     if (interaction.commandName === "łowienie") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", KOMENDY_COOLDOWN_MS["łowienie"]);
+        const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", efektywnyCooldownMs("łowienie", KOMENDY_COOLDOWN_MS["łowienie"], aktywnyBonus));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -1990,9 +2177,16 @@ client.on("interactionCreate", async (interaction) => {
 
             if (wygrana) {
                 const nagrodaLowienia = losowaLiczba(1, 10);
-                await addSolidDice(interaction.user.id, interaction.guild.id, nagrodaLowienia);
+                const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaLowienia, aktywnyBonus);
+
+                let bonusSakiriTekst = "";
+                if (aktywnyBonus?.bonus.typ === "lowienie_extra_sd") {
+                    await addSolidDice(interaction.user.id, interaction.guild.id, aktywnyBonus.bonus.wartosc);
+                    bonusSakiriTekst = `\n+${aktywnyBonus.bonus.wartosc} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - ${aktywnyBonus.bonus.nazwaBonusu})`;
+                }
+
                 await interaction.editReply({
-                    content: rysujJezioro() + `\n\n🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!`,
+                    content: rysujJezioro() + `\n\n🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}`,
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             } else {
@@ -2046,7 +2240,8 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.commandName === "automat") {
         await interaction.deferReply();
 
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "automat", KOMENDY_COOLDOWN_MS.automat);
+        const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "automat", efektywnyCooldownMs("automat", KOMENDY_COOLDOWN_MS.automat, aktywnyBonus));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -2106,9 +2301,9 @@ client.on("interactionCreate", async (interaction) => {
             if (wygrana) {
                 zlapane = true;
                 const nagrodaAutomatu = losowaLiczba(1, 10);
-                await addSolidDice(interaction.user.id, interaction.guild.id, nagrodaAutomatu);
+                const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaAutomatu, aktywnyBonus);
                 await interaction.editReply({
-                    content: rysujAutomat() + `\n\n🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!`,
+                    content: rysujAutomat() + `\n\n🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}`,
                     components: [przyciskiAutomatu(true)],
                 }).catch(() => {});
             } else {
@@ -2443,6 +2638,115 @@ if (interaction.commandName === "plecak") {
     });
 }
 
+if (interaction.commandName === "profil") {
+    await interaction.deferReply();
+
+    const docelowyUser = interaction.options.getUser("uzytkownik") || interaction.user;
+    const czyWlasny = docelowyUser.id === interaction.user.id;
+
+    const ekonomia = await db.execute({
+        sql: "SELECT solid_dice_total FROM ekonomia WHERE user_id = ? AND guild_id = ?",
+        args: [docelowyUser.id, interaction.guild.id],
+    });
+    const solidDiceTotal = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice_total) : 0;
+
+    const posiadaneSkiny = await getPosiadaneSkinyZNazwami(docelowyUser.id, interaction.guild.id);
+
+    const budujEmbedProfilu = async () => {
+        const aktywny = await pobierzAktywnySkinIBonus(docelowyUser.id, interaction.guild.id);
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle(`👤 Profil - ${docelowyUser.username}`)
+            .addFields({ name: "💰 Solid Dice łącznie zdobyte", value: `${solidDiceTotal} <:Red_roll:1512521789748547715>` });
+
+        if (aktywny) {
+            embed.addFields({
+                name: `✨ Aktywny bonus od postaci ${aktywny.nazwa}: ${aktywny.bonus.nazwaBonusu}`,
+                value: aktywny.bonus.opis,
+            });
+            const nazwaPliku = aktywny.plik;
+            if (existsSync(`./Gra/skins/${nazwaPliku}`)) {
+                embed.setThumbnail(`attachment://${nazwaPliku}`);
+            }
+        } else {
+            embed.addFields({
+                name: "Aktywny bonus",
+                value: posiadaneSkiny.length > 0
+                    ? (czyWlasny ? "Brak - wybierz skina z listy poniżej, aby aktywować jego bonus." : "Brak")
+                    : "Brak - ten gracz nie posiada żadnego skina z `/skiny`.",
+            });
+        }
+        return { embed, aktywny };
+    };
+
+    const budujKomponenty = (aktywnyPlik) => {
+        if (!czyWlasny || posiadaneSkiny.length === 0) return [];
+        const opcje = [
+            { label: "❌ Brak (wyłącz bonus)", value: "__brak__", default: !aktywnyPlik },
+            ...posiadaneSkiny.slice(0, 24).map(s => ({
+                label: s.nazwa,
+                description: s.plik,
+                value: s.plik,
+                default: s.plik === aktywnyPlik,
+            })),
+        ];
+        return [new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+                .setCustomId("profil_wybierz_skin")
+                .setPlaceholder("Wybierz aktywny skin (aktywuje jego bonus)...")
+                .addOptions(opcje)
+        )];
+    };
+
+    const { embed: pierwszyEmbed, aktywny: pierwszyAktywny } = await budujEmbedProfilu();
+    const plikiPoczatkowe = pierwszyAktywny && existsSync(`./Gra/skins/${pierwszyAktywny.plik}`)
+        ? [new AttachmentBuilder(`./Gra/skins/${pierwszyAktywny.plik}`, { name: pierwszyAktywny.plik })]
+        : [];
+
+    const wiadomoscProfilu = await interaction.editReply({
+        embeds: [pierwszyEmbed],
+        files: plikiPoczatkowe,
+        components: budujKomponenty(pierwszyAktywny?.plik),
+    });
+
+    if (!czyWlasny || posiadaneSkiny.length === 0) return;
+
+    const collectorProfilu = wiadomoscProfilu.createMessageComponentCollector({
+        filter: (i) => i.user.id === interaction.user.id,
+        time: 180000,
+    });
+
+    collectorProfilu.on("collect", async (i) => {
+        try {
+            await i.deferUpdate();
+
+            if (i.values[0] === "__brak__") {
+                await db.execute({
+                    sql: "DELETE FROM profil_wybrany_skin WHERE user_id = ? AND guild_id = ?",
+                    args: [interaction.user.id, interaction.guild.id],
+                });
+            } else {
+                await db.execute({
+                    sql: "INSERT INTO profil_wybrany_skin (user_id, guild_id, plik) VALUES (?, ?, ?) ON CONFLICT(user_id, guild_id) DO UPDATE SET plik = ?",
+                    args: [interaction.user.id, interaction.guild.id, i.values[0], i.values[0]],
+                });
+            }
+
+            const { embed: nowyEmbed, aktywny: nowyAktywny } = await budujEmbedProfilu();
+            const nowePliki = nowyAktywny && existsSync(`./Gra/skins/${nowyAktywny.plik}`)
+                ? [new AttachmentBuilder(`./Gra/skins/${nowyAktywny.plik}`, { name: nowyAktywny.plik })]
+                : [];
+            await i.editReply({ embeds: [nowyEmbed], files: nowePliki, components: budujKomponenty(nowyAktywny?.plik) });
+        } catch (error) {
+            console.error("Błąd w /profil:", error);
+        }
+    });
+
+    collectorProfilu.on("end", () => {
+        wiadomoscProfilu.edit({ components: [] }).catch(() => {});
+    });
+}
+
 if (interaction.commandName === "skiny") {
     await interaction.deferReply();
 
@@ -2458,11 +2762,16 @@ if (interaction.commandName === "skiny") {
         const embed = new EmbedBuilder()
             .setColor(0x2ECC71)
             .setTitle("Sklep ze skinami")
-            .setDescription(`Masz **${solidDice}** <:Red_roll:1512521789748547715> w swoim portfelu.`);
+            .setDescription(`Masz **${solidDice}** <:Red_roll:1512521789748547715> w swoim portfelu.\n\n💡 Ceny zmieniają się losowo co 2 godziny, niezależnie dla każdego skina (±5-50% od ceny bazowej).`);
 
         if (skin) {
+            const cena = await cenaSkina(skin);
+            const bonus = BONUSY_POSTACI[skin.nazwa];
             embed.setImage(`attachment://${skin.plik}`);
-            embed.setFooter({ text: `${skin.nazwa} • ${posiadany ? "Posiadasz" : `${CENA_SKINA} Solid Dice`}` });
+            if (bonus) {
+                embed.addFields({ name: `✨ Bonus: ${bonus.nazwaBonusu}`, value: bonus.opis });
+            }
+            embed.setFooter({ text: `${skin.nazwa} • ${posiadany ? "Posiadasz" : `${cena} Solid Dice`}` });
         }
 
         return embed;
@@ -2473,7 +2782,7 @@ if (interaction.commandName === "skiny") {
             new StringSelectMenuBuilder()
                 .setCustomId("skiny_wybor")
                 .setPlaceholder("Wybierz skina")
-                .addOptions(katalog.slice(0, 25).map(skin => ({ label: skin.nazwa, value: skin.plik })))
+                .addOptions(katalog.slice(0, 25).map(skin => ({ label: skin.nazwa, description: skin.plik, value: skin.plik })))
         );
     };
 
@@ -2497,9 +2806,10 @@ if (interaction.commandName === "skiny") {
                 const posiadany = posiadane.has(wybranySkin.plik);
 
                 const attachment = new AttachmentBuilder(`./Gra/skins/${wybranySkin.plik}`, { name: wybranySkin.plik });
+                const cena = await cenaSkina(wybranySkin);
                 const btnKup = new ButtonBuilder()
                     .setCustomId("skiny_kup")
-                    .setLabel(posiadany ? "✅ Posiadasz" : `Kup za ${CENA_SKINA}`)
+                    .setLabel(posiadany ? "✅ Posiadasz" : `Kup za ${cena}`)
                     .setStyle(posiadany ? ButtonStyle.Secondary : ButtonStyle.Success)
                     .setDisabled(posiadany);
 
@@ -2515,11 +2825,11 @@ if (interaction.commandName === "skiny") {
                 await i.deferUpdate();
                 if (!wybranySkin) return;
 
-                const wynikZakupu = await kupSkina(interaction.user.id, interaction.guild.id, wybranySkin.plik);
+                const wynikZakupu = await kupSkina(interaction.user.id, interaction.guild.id, wybranySkin);
 
                 if (!wynikZakupu.sukces) {
                     const powodTresc = wynikZakupu.powod === "brak_srodkow"
-                        ? "❗ Nie masz wystarczająco Solid Dice na ten skin!"
+                        ? `❗ Nie masz wystarczająco Solid Dice na ten skin! Kosztuje aktualnie ${wynikZakupu.cena} Solid Dice.`
                         : "❗ Już posiadasz ten skin!";
                     await i.followUp({ content: powodTresc, ephemeral: true });
                     return;
@@ -2537,7 +2847,7 @@ if (interaction.commandName === "skiny") {
                     files: [attachment],
                     components: [budujMenu(), new ActionRowBuilder().addComponents(btnPosiadasz)],
                 });
-                await i.followUp({ content: `✅ Kupiłeś skin **${wybranySkin.nazwa}**!`, ephemeral: true });
+                await i.followUp({ content: `✅ Kupiłeś skin **${wybranySkin.nazwa}** za ${wynikZakupu.cena} Solid Dice! Wejdź w \`/profil\`, aby aktywować jego bonus.`, ephemeral: true });
                 return;
             }
         } catch (error) {
@@ -2553,7 +2863,8 @@ if (interaction.commandName === "skiny") {
 if (interaction.commandName === "pinkpawsheist") {
     await interaction.deferReply();
 
-    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", KOMENDY_COOLDOWN_MS.pinkpawsheist);
+    const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
+    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", efektywnyCooldownMs("pinkpawsheist", KOMENDY_COOLDOWN_MS.pinkpawsheist, aktywnyBonus));
     if (cooldown) {
         await interaction.editReply({ content: cooldown });
         return;
@@ -2563,7 +2874,7 @@ if (interaction.commandName === "pinkpawsheist") {
 
     if (wygrana) {
         const ilosc = Math.floor(Math.random() * 30) + 1;
-        await addSolidDice(interaction.user.id, interaction.guild.id, ilosc);
+        const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
 
         const wiadomosci1 = [
             "Uciekłeś/aś z łupem",
@@ -2576,7 +2887,7 @@ if (interaction.commandName === "pinkpawsheist") {
             .setColor(0x00FF00)
             .setTitle("🐾 Pink Paws Heist - Sukces!")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>` });
+            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}` });
 
         await interaction.editReply({ embeds: [embed] });
 
