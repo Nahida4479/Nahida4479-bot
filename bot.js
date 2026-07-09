@@ -3136,7 +3136,7 @@ if (interaction.commandName === "skiny") {
             const bonus = BONUSY_SKINOW[skin.plik];
             const cenaBazowa = bonus?.cenaBazowa ?? CENA_SKINA;
             embed.setImage(`attachment://${skin.plik}`);
-            embed.addFields({ name: "💰 Cena bazowa", value: `${cenaBazowa} Solid Dice (aktualna cena: ${cena} Solid Dice - żeby wiedzieć, czy warto kupować teraz)` });
+            embed.addFields({ name: "💰 Cena bazowa", value: `${cenaBazowa} Solid Dice (aktualna cena: ${cena} Solid Dice` });
             if (bonus) {
                 embed.addFields({ name: `✨ Bonus: ${bonus.nazwaBonusu}`, value: bonus.opis });
             }
