@@ -63,7 +63,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/automat` | Złap zabawkę w automacie zanim skończy się czas | 10 min |
 | `/roll` | Wylosuj 10 przedmiotów za 10 Solid Dice | brak |
 | `/mahjong` | Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób | 1h |
-| `/skiny` | Kup skiny postaci w sklepie - ceny wahają się losowo co 2h, każdy skin ma bonus postaci | brak |
+| `/skiny` | Kup skiny postaci w sklepie - ceny wahają się losowo co 2h, każdy z 18 skinów ma inny bonus | brak |
 | `/plecak` | Sprawdź swoje Solid Dice, postacie, skiny i miejsce w rankingu | brak |
 | `/profil` | Sprawdź swój profil (lub czyjś) i aktywuj bonus jednego z posiadanych skinów | brak |
 | `/nteleaderboard` | Ranking graczy według łącznie zdobytych Solid Dice | brak |
@@ -89,9 +89,9 @@ Mammon respi się sam z siebie co 12-24h (losowo) na kanale ustawionym w `/ntegr
 
 ---
 
-## 🎨 Skiny i bonusy postaci
+## 🎨 Skiny i bonusy
 
-Każda postać w `/skiny` ma przypisany unikalny bonus (np. krótszy cooldown konkretnej komendy, szansa na dodatkowe Solid Dice, wzmocnienie w walce z Mammonem). Ceny skinów (1500-10000 Solid Dice, zależnie od siły bonusu) zmieniają się losowo o ±5-50% co 2 godziny, niezależnie dla każdego skina.
+Każdy z 18 skinów w `/skiny` ma swój własny, unikalny bonus (np. krótszy cooldown konkretnej komendy, szansa na dodatkowe Solid Dice, wzmocnienie w walce z Mammonem) - nawet skiny tej samej postaci różnią się bonusem. Ceny skinów (1500-10000 Solid Dice, zależnie od siły bonusu) zmieniają się losowo o ±5-50% co 2 godziny, niezależnie dla każdego skina.
 
 Zakup skina nie aktywuje jego bonusu automatycznie - trzeba go wybrać w `/profil`. Można mieć aktywny tylko jeden bonus na raz.
 

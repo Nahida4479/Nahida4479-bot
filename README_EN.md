@@ -60,7 +60,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/automat` | Grab a toy in the claw machine before time runs out | 10 min |
 | `/roll` | Roll 10 items for 10 Solid Dice | none |
 | `/mahjong` | Play NTE Mahjong - solo with bots or multiplayer up to 4 players | 1h |
-| `/skiny` | Buy character skins from the shop - prices fluctuate every 2h, each skin has a bonus | none |
+| `/skiny` | Buy character skins from the shop - prices fluctuate every 2h, each of the 18 skins has a different bonus | none |
 | `/plecak` | Check your Solid Dice, characters, skins and leaderboard rank | none |
 | `/profil` | Check your profile (or someone else's) and activate one owned skin's bonus | none |
 | `/nteleaderboard` | Player ranking by **ALL** Solid Dice ever earned | none |
@@ -86,9 +86,9 @@ Mammon spawns on its own every 12-24h (random) in the channel set via `/ntegra` 
 
 ---
 
-## 🎨 Skins and character bonuses
+## 🎨 Skins and bonuses
 
-Every character in `/skiny` has a unique bonus attached (e.g. a shorter cooldown on a specific command, a chance at extra Solid Dice, a boost while fighting Mammon). Skin prices (1500-10000 Solid Dice, depending on bonus strength) fluctuate randomly by ±5-50% every 2 hours, independently per skin.
+Each of the 18 skins in `/skiny` has its own unique bonus attached (e.g. a shorter cooldown on a specific command, a chance at extra Solid Dice, a boost while fighting Mammon) - even skins of the same character differ in their bonus. Skin prices (1500-10000 Solid Dice, depending on bonus strength) fluctuate randomly by ±5-50% every 2 hours, independently per skin.
 
 Buying a skin doesn't activate its bonus automatically - it has to be selected in `/profil`. Only one bonus can be active at a time.
 

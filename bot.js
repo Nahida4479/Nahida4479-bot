@@ -179,7 +179,14 @@ client.once("ready", async () => {
                 });
 
                 const kanal = await client.channels.fetch(row.kanal_id).catch(() => null);
-                if (kanal) await odpalMammona(guildId, kanal);
+                if (kanal) {
+                    // Bonus "mammon_respawn_mnoznik" - im więcej graczy na serwerze ma go
+                    // aktywnego, tym więcej razy z rzędu Mammon respi się bez czekania na
+                    // kolejny losowy termin. Dotyczy tylko samoistnego spawnu, nie /mammonevent.
+                    const iloscBonusu = await policzGraczyZBonusem(guildId, "mammon_respawn_mnoznik");
+                    if (iloscBonusu > 0) mammonKolejkaRespawnow.set(guildId, { pozostale: iloscBonusu, kanal });
+                    await odpalMammona(guildId, kanal);
+                }
             }
         } catch (err) {
             console.error("Błąd harmonogramu Mammona:", err);
@@ -329,54 +336,102 @@ async function getSolidDice(userId, guildId) {
 
 // Skiny postaci
 
-// Bonus jest przypisany do postaci (nazwa), nie do konkretnego pliku skina - kilka
-// plików tej samej postaci (np. 4 skiny Nanally) dają dostęp do tego samego bonusu,
-// tylko inny wygląd do wyświetlenia. Ceny bazowe 1500-10000 Solid Dice, dopasowane
-// do siły bonusu - mocniejszy/bardziej uniwersalny bonus = wyższa cena.
-const BONUSY_POSTACI = {
-    "Hotori": {
+// Bonus jest przypisany do konkretnego pliku skina - każdy z 18 skinów ma inny
+// bonus, nawet skiny tej samej postaci (np. 4 skiny Nanally mają 4 różne bonusy).
+// Ceny bazowe 1500-10000 Solid Dice, dopasowane do siły bonusu - mocniejszy/
+// bardziej uniwersalny bonus = wyższa cena.
+const BONUSY_SKINOW = {
+    "Hotori3.jpg": {
         cenaBazowa: 1500,
         nazwaBonusu: "Szybsze łowienie",
         opis: "Skraca cooldown `/łowienie` o 5 minut.",
         typ: "cooldown_lowienie",
         wartoscMs: 5 * 60 * 1000,
     },
-    "Mint": {
+    "Mint1.jpg": {
         cenaBazowa: 1800,
         nazwaBonusu: "Szczęście przy stole",
         opis: "Dodaje +3 Solid Dice za każdą dokończoną partię `/mahjong`.",
         typ: "mahjong_extra_sd",
         wartosc: 3,
     },
-    "Chiz": {
+    "Nanally4.jpg": {
+        cenaBazowa: 1800,
+        nazwaBonusu: "Zwinne szczypce",
+        opis: "Skraca cooldown `/automat` o 3 minuty.",
+        typ: "cooldown_automat",
+        wartoscMs: 3 * 60 * 1000,
+    },
+    "Chiz2.jpg": {
         cenaBazowa: 2000,
         nazwaBonusu: "Szybszy wyścig",
         opis: "Skraca cooldown `/wyścig` o 20 minut.",
         typ: "cooldown_wyscig",
         wartoscMs: 20 * 60 * 1000,
     },
-    "Sakiri": {
+    "Nanally5.jpg": {
+        cenaBazowa: 2200,
+        nazwaBonusu: "Zapasowa wędka",
+        opis: "Zmniejsza o połowę stratę Solid Dice, gdy czas w `/łowienie` minie bez złowienia wszystkich ryb.",
+        typ: "lowienie_polowa_straty",
+    },
+    "Sakiri2.jpg": {
         cenaBazowa: 2500,
         nazwaBonusu: "Szczęśliwa wędka",
         opis: "Dodaje +5 Solid Dice za każdą wygraną w `/łowienie`.",
         typ: "lowienie_extra_sd",
         wartosc: 5,
     },
-    "Fadia": {
+    "Chiz3.jpg": {
+        cenaBazowa: 2500,
+        nazwaBonusu: "Zwycięski pit stop",
+        opis: "Dodaje +5 Solid Dice za każdą wygraną w `/wyścig`.",
+        typ: "wyscig_extra_sd",
+        wartosc: 5,
+    },
+    "m_mc5.jpg": {
+        cenaBazowa: 3000,
+        nazwaBonusu: "Gotowy do walki",
+        opis: "Zaczynasz każdą walkę z Mammonem z 1 darmowym ULT-em, bez potrzeby wykonania 5 ataków.",
+        typ: "mammon_darmowy_ult",
+    },
+    "Mint3.jpg": {
+        cenaBazowa: 3000,
+        nazwaBonusu: "Mistrz stołu",
+        opis: "Skraca cooldown `/mahjong` o 10 minut.",
+        typ: "cooldown_mahjong",
+        wartoscMs: 10 * 60 * 1000,
+    },
+    "Fadia2.jpg": {
         cenaBazowa: 3500,
         nazwaBonusu: "Furia Mammona",
         opis: "Zwiększa obrażenia z ULT-a w walce z Mammonem o 50%.",
         typ: "mammon_ult_procent",
         wartosc: 0.5,
     },
-    "Daffodill": {
+    "m_mc4.jpg": {
+        cenaBazowa: 4000,
+        nazwaBonusu: "Ciężka pięść",
+        opis: "Zwiększa obrażenia z ataku (nie ULT-a) w walce z Mammonem o 50%.",
+        typ: "mammon_atak_procent",
+        wartosc: 0.5,
+    },
+    "Nanally3.jpg": {
+        cenaBazowa: 4000,
+        nazwaBonusu: "Fartowna passa",
+        opis: "10% szans na dodatkowe +15 Solid Dice po sukcesie w `/pinkpawsheist`.",
+        typ: "pinkpawsheist_szansa_extra",
+        szansa: 0.10,
+        wartosc: 15,
+    },
+    "Daffodill2.jpg": {
         cenaBazowa: 4500,
         nazwaBonusu: "Wszechstronny odpoczynek",
         opis: "Skraca cooldown wszystkich komend ekonomii o 5 minut.",
         typ: "cooldown_wszystkie",
         wartoscMs: 5 * 60 * 1000,
     },
-    "Jiuyuan": {
+    "Jiuyuan2.jpg": {
         cenaBazowa: 5000,
         nazwaBonusu: "Nadgodziny",
         opis: "10% szans na dodatkowe +25 Solid Dice po użyciu `/work`.",
@@ -384,7 +439,7 @@ const BONUSY_POSTACI = {
         szansa: 0.10,
         wartosc: 25,
     },
-    "Nanally": {
+    "Nanally_skin.jpg": {
         cenaBazowa: 6000,
         nazwaBonusu: "Duży zarobek",
         opis: "Dodaje +20 Solid Dice, gdy zdobyta nagroda wynosi 20 lub więcej Solid Dice.",
@@ -392,15 +447,29 @@ const BONUSY_POSTACI = {
         prog: 20,
         wartosc: 20,
     },
-    "MC": {
+    "m_mc2.jpg": {
+        cenaBazowa: 8000,
+        nazwaBonusu: "Przyzywacz Mammona",
+        opis: "Za każdego gracza na serwerze z aktywnym tym bonusem, Mammon respi się samoistnie o 1 raz więcej z rzędu (1 gracz = 2 razy, 2 gracze = 3 razy, itd.).",
+        typ: "mammon_respawn_mnoznik",
+    },
+    "m_mc3.jpg": {
+        cenaBazowa: 9000,
+        nazwaBonusu: "Podwójna stawka",
+        opis: "20% szans na podwojenie nagrody Solid Dice z użytej komendy.",
+        typ: "podwojenie_nagrody",
+        szansa: 0.20,
+    },
+    "m_mc1.jpg": {
         cenaBazowa: 10000,
         nazwaBonusu: "Bez wytchnienia",
-        opis: "Zdejmuje cooldown ataku podczas walki z Mammonem.",
-        typ: "mammon_atak_bez_cooldownu",
+        opis: "Zdejmuje cooldown ataku podczas walki z Mammonem, a ULT ładuje się co 2 ataki (zamiast co 5).",
+        typ: "mammon_mc_super",
+        ultCoAtakow: 2,
     },
 };
 
-const CENA_SKINA = 100; // domyślna cena bazowa dla skinów bez przypisanego bonusu w BONUSY_POSTACI
+const CENA_SKINA = 100; // domyślna cena bazowa dla skinów bez przypisanego bonusu w BONUSY_SKINOW
 const CENA_SKINA_ZMIANA_MS = 2 * 60 * 60 * 1000;
 
 async function getKatalogSkinow() {
@@ -408,11 +477,11 @@ async function getKatalogSkinow() {
     return wynik.rows;
 }
 
-// Cena danego skina waha się losowo (±5-50% od ceny bazowej postaci) i przelosowuje
+// Cena danego skina waha się losowo (±5-50% od ceny bazowej jego bonusu) i przelosowuje
 // się co 2 godziny, niezależnie dla każdego pliku - nawet dwa skiny tej samej postaci
 // mogą mieć w danym momencie różną aktualną cenę.
 async function cenaSkina(skinRow) {
-    const cenaBazowa = BONUSY_POSTACI[skinRow.nazwa]?.cenaBazowa ?? CENA_SKINA;
+    const cenaBazowa = BONUSY_SKINOW[skinRow.plik]?.cenaBazowa ?? CENA_SKINA;
     const teraz = Date.now();
 
     if (skinRow.cena_aktualna && skinRow.nastepna_zmiana_ceny && teraz < Number(skinRow.nastepna_zmiana_ceny)) {
@@ -493,10 +562,23 @@ async function pobierzAktywnySkinIBonus(userId, guildId) {
     if (wynik.rows.length === 0) return null;
 
     const { plik, nazwa } = wynik.rows[0];
-    const bonus = BONUSY_POSTACI[nazwa];
+    const bonus = BONUSY_SKINOW[plik];
     if (!bonus) return null;
 
     return { plik, nazwa, bonus };
+}
+
+// Liczy, ile graczy na serwerze ma aktywny (wybrany w /profil i wciąż posiadany)
+// bonus danego typu - używane przez "mammon_respawn_mnoznik" do ustalenia, o ile
+// razy więcej Mammon powinien się zrespić z rzędu.
+async function policzGraczyZBonusem(guildId, typ) {
+    const wynik = await db.execute({
+        sql: `SELECT p.plik FROM profil_wybrany_skin p
+              JOIN skiny_gracza sg ON sg.user_id = p.user_id AND sg.guild_id = p.guild_id AND sg.plik = p.plik
+              WHERE p.guild_id = ?`,
+        args: [guildId],
+    });
+    return wynik.rows.filter(row => BONUSY_SKINOW[row.plik]?.typ === typ).length;
 }
 
 // Skraca bazowy cooldown, jeśli aktywny bonus gracza dotyczy tej konkretnej komendy
@@ -507,24 +589,40 @@ function efektywnyCooldownMs(komenda, bazowyCooldownMs, aktywny) {
     if (typ === "cooldown_wszystkie") return Math.max(0, bazowyCooldownMs - wartoscMs);
     if (typ === "cooldown_lowienie" && komenda === "łowienie") return Math.max(0, bazowyCooldownMs - wartoscMs);
     if (typ === "cooldown_wyscig" && komenda === "wyścig") return Math.max(0, bazowyCooldownMs - wartoscMs);
+    if (typ === "cooldown_automat" && komenda === "automat") return Math.max(0, bazowyCooldownMs - wartoscMs);
+    if (typ === "cooldown_mahjong" && komenda === "mahjong") return Math.max(0, bazowyCooldownMs - wartoscMs);
     return bazowyCooldownMs;
 }
 
-// Dolicza bonus "reward_prog_extra" do już przyznanej nagrody (baza musi być dodana
-// wcześniej przez wywołującego) - zwraca info do wyświetlenia w wiadomości.
+// Dolicza bonus "reward_prog_extra" albo "podwojenie_nagrody" do już przyznanej
+// nagrody (baza musi być dodana wcześniej przez wywołującego) - zwraca info do
+// wyświetlenia w wiadomości. Gracz ma zawsze tylko jeden aktywny bonus, więc te
+// dwa typy się nie kumulują.
 async function dodajBonusDoNagrody(userId, guildId, ilosc, aktywny) {
-    if (!aktywny || aktywny.bonus.typ !== "reward_prog_extra" || ilosc < aktywny.bonus.prog) {
-        return { bonusDodatkowy: 0, bonusTekst: null };
+    if (!aktywny) return { bonusDodatkowy: 0, bonusTekst: null };
+
+    if (aktywny.bonus.typ === "reward_prog_extra" && ilosc >= aktywny.bonus.prog) {
+        const bonusDodatkowy = aktywny.bonus.wartosc;
+        await addSolidDice(userId, guildId, bonusDodatkowy);
+        return {
+            bonusDodatkowy,
+            bonusTekst: `+${bonusDodatkowy} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywny.nazwa}** - ${aktywny.bonus.nazwaBonusu})`,
+        };
     }
-    const bonusDodatkowy = aktywny.bonus.wartosc;
-    await addSolidDice(userId, guildId, bonusDodatkowy);
-    return {
-        bonusDodatkowy,
-        bonusTekst: `+${bonusDodatkowy} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywny.nazwa}** - ${aktywny.bonus.nazwaBonusu})`,
-    };
+
+    if (aktywny.bonus.typ === "podwojenie_nagrody" && ilosc > 0 && Math.random() < aktywny.bonus.szansa) {
+        const bonusDodatkowy = ilosc;
+        await addSolidDice(userId, guildId, bonusDodatkowy);
+        return {
+            bonusDodatkowy,
+            bonusTekst: `+${bonusDodatkowy} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywny.nazwa}** - ${aktywny.bonus.nazwaBonusu} - nagroda podwojona!)`,
+        };
+    }
+
+    return { bonusDodatkowy: 0, bonusTekst: null };
 }
 
-// Przyznaje bazową nagrodę i, jeśli dotyczy, dolicza do niej bonus postaci
+// Przyznaje bazową nagrodę i, jeśli dotyczy, dolicza do niej bonus aktywnego skina
 async function przyznajNagrode(userId, guildId, ilosc, aktywny) {
     await addSolidDice(userId, guildId, ilosc);
     return await dodajBonusDoNagrody(userId, guildId, ilosc, aktywny);
@@ -968,6 +1066,10 @@ const MAMMON_SPAWN_MIN_H = 12;
 const MAMMON_SPAWN_MAX_H = 24;
 
 const aktywneMammony = new Map();
+// guildId -> { pozostale, kanal } - kolejka dodatkowych, natychmiastowych respawnów
+// Mammona wynikająca z bonusu "mammon_respawn_mnoznik" (m_mc2.jpg). Ustawiana tylko
+// przy samoistnym (harmonogramowym) spawnie, nie przy ręcznym /mammonevent.
+const mammonKolejkaRespawnow = new Map();
 
 const MAMMON_ABILITKI = {
     dmg50: { nazwa: "💥 Cios Mocy", opis: "Zadaje jednorazowo 50 obrażeń Mammonowi." },
@@ -1011,7 +1113,7 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
 
 function panelGraczaMammon(stan, gracz) {
     const info = MAMMON_ABILITKI[gracz.abilitka];
-    const bezCooldownuAtaku = gracz.aktywnyBonus?.bonus.typ === "mammon_atak_bez_cooldownu";
+    const bezCooldownuAtaku = gracz.aktywnyBonus?.bonus.typ === "mammon_mc_super";
     const naCooldownieAtaku = !bezCooldownuAtaku && Date.now() - gracz.ostatniAtak < MAMMON_COOLDOWN_ATAK_MS;
     const naCooldownieUlt = Date.now() - gracz.ostatniaUlta < MAMMON_COOLDOWN_ULT_MS;
 
@@ -1148,6 +1250,13 @@ async function zakonczWalkeMammon(guildId, pokonany) {
         .addFields({ name: "🏆 Ranking obrażeń", value: rankingTekst });
 
     await stan.wiadomosc.edit({ embeds: [embed], components: [] }).catch(() => {});
+
+    const kolejka = mammonKolejkaRespawnow.get(guildId);
+    if (kolejka && kolejka.pozostale > 0) {
+        kolejka.pozostale--;
+        if (kolejka.pozostale <= 0) mammonKolejkaRespawnow.delete(guildId);
+        setTimeout(() => odpalMammona(guildId, kolejka.kanal).catch(() => {}), 10000);
+    }
 }
 
 async function odpalMammona(guildId, kanal) {
@@ -1277,9 +1386,9 @@ const HELP_STRONY = [
     {
         komenda: "/skiny",
         plik: "skiny",
-        opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy skin ma przypisany bonus postaci, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
-        zdobywasz: "Kosmetyczny skin na stałe + dostęp do bonusu jego postaci",
-        tracisz: "Aktualna cena skina (1500-10000 Solid Dice, zależnie od postaci) - sprawdź ją w sklepie przed kupnem",
+        opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy z 18 skinów ma swój własny, unikalny bonus, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
+        zdobywasz: "Kosmetyczny skin na stałe + dostęp do jego unikalnego bonusu",
+        tracisz: "Aktualna cena skina (1500-10000 Solid Dice, zależnie od bonusu) - sprawdź ją w sklepie przed kupnem",
         cooldown: "Brak",
     },
     {
@@ -1293,7 +1402,7 @@ const HELP_STRONY = [
     {
         komenda: "/profil",
         plik: "profil",
-        opis: "Sprawdź swój profil (lub profil innego gracza) - łączne Solid Dice i aktywny bonus postaci. Wybierz jeden z posiadanych skinów, aby aktywować jego bonus (można mieć aktywny tylko jeden na raz).",
+        opis: "Sprawdź swój profil (lub profil innego gracza) - łączne Solid Dice i aktywny bonus. Wybierz jeden z posiadanych skinów, aby aktywować jego unikalny bonus (można mieć aktywny tylko jeden na raz).",
         zdobywasz: "Nie dotyczy - to tylko podgląd i wybór aktywnego bonusu",
         tracisz: "Nie dotyczy",
         cooldown: "Brak",
@@ -1394,7 +1503,7 @@ client.on("interactionCreate", async (interaction) => {
             stan.uczestnicy.set(interaction.user.id, {
                 ataki: 0,
                 ultyUzyte: 0,
-                ultyDostepne: 0,
+                ultyDostepne: aktywnyBonus?.bonus.typ === "mammon_darmowy_ult" ? 1 : 0,
                 ostatniAtak: 0,
                 ostatniaUlta: 0,
                 obrazeniaZadane: 0,
@@ -1439,7 +1548,9 @@ client.on("interactionCreate", async (interaction) => {
         const teraz = Date.now();
         let cooldownUzytyMs = 0;
 
-        const bezCooldownuAtaku = gracz.aktywnyBonus?.bonus.typ === "mammon_atak_bez_cooldownu";
+        const bonusMcSuper = gracz.aktywnyBonus?.bonus.typ === "mammon_mc_super" ? gracz.aktywnyBonus.bonus : null;
+        const bezCooldownuAtaku = !!bonusMcSuper;
+        const ultCoAtakow = bonusMcSuper?.ultCoAtakow ?? 5;
 
         if (interaction.customId === "mammon_atak") {
             const pozostalo = bezCooldownuAtaku ? 0 : MAMMON_COOLDOWN_ATAK_MS - (teraz - gracz.ostatniAtak);
@@ -1449,9 +1560,11 @@ client.on("interactionCreate", async (interaction) => {
             }
             gracz.ostatniAtak = teraz;
             gracz.ataki++;
-            if (gracz.ataki % 5 === 0) gracz.ultyDostepne++;
-            stan.hp = Math.max(0, stan.hp - MAMMON_ATAK_OBRAZENIA);
-            gracz.obrazeniaZadane += MAMMON_ATAK_OBRAZENIA;
+            if (gracz.ataki % ultCoAtakow === 0) gracz.ultyDostepne++;
+            const mnoznikAtaku = gracz.aktywnyBonus?.bonus.typ === "mammon_atak_procent" ? 1 + gracz.aktywnyBonus.bonus.wartosc : 1;
+            const obrazeniaAtaku = Math.round(MAMMON_ATAK_OBRAZENIA * mnoznikAtaku);
+            stan.hp = Math.max(0, stan.hp - obrazeniaAtaku);
+            gracz.obrazeniaZadane += obrazeniaAtaku;
             cooldownUzytyMs = bezCooldownuAtaku ? 0 : MAMMON_COOLDOWN_ATAK_MS;
         } else {
             if (gracz.ultZablokowany) {
@@ -1459,7 +1572,7 @@ client.on("interactionCreate", async (interaction) => {
                 return;
             }
             if (gracz.ultyDostepne <= 0) {
-                await interaction.reply({ content: "❗ Nie masz jeszcze dostępnego ULT (potrzeba 5 ataków).", ephemeral: true });
+                await interaction.reply({ content: `❗ Nie masz jeszcze dostępnego ULT (potrzeba ${ultCoAtakow} ataków).`, ephemeral: true });
                 return;
             }
             const pozostalo = MAMMON_COOLDOWN_ULT_MS - (teraz - gracz.ostatniaUlta);
@@ -2095,8 +2208,15 @@ client.on("interactionCreate", async (interaction) => {
         } else {
             const nagrodaWyscigu = losowaLiczba(5, 15);
             const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaWyscigu, aktywnyBonus);
+
+            let bonusChizTekst = "";
+            if (aktywnyBonus?.bonus.typ === "wyscig_extra_sd") {
+                await addSolidDice(interaction.user.id, interaction.guild.id, aktywnyBonus.bonus.wartosc);
+                bonusChizTekst = `\n+${aktywnyBonus.bonus.wartosc} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - ${aktywnyBonus.bonus.nazwaBonusu})`;
+            }
+
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}`,
+                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}`,
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
@@ -2190,7 +2310,12 @@ client.on("interactionCreate", async (interaction) => {
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             } else {
-                const strata = losowaLiczba(1, 5);
+                let strata = losowaLiczba(1, 5);
+                let bonusPolowaTekst = "";
+                if (aktywnyBonus?.bonus.typ === "lowienie_polowa_straty") {
+                    strata = Math.ceil(strata / 2);
+                    bonusPolowaTekst = ` (zmniejszona o połowę dzięki bonusowi od **${aktywnyBonus.nazwa}**)`;
+                }
                 const saldo = await getSolidDice(interaction.user.id, interaction.guild.id);
                 const realnaStrata = Math.min(strata, saldo);
                 if (realnaStrata > 0) {
@@ -2200,7 +2325,7 @@ client.on("interactionCreate", async (interaction) => {
                     });
                 }
                 await interaction.editReply({
-                    content: rysujJezioro() + `\n\n🐟💨 **Ryby uciekły!** Czas minął - złowiłeś ${zlowione}/${LOWIENIE_CEL}. Tracisz **-${realnaStrata}** <:Red_roll:1512521789748547715>.`,
+                    content: rysujJezioro() + `\n\n🐟💨 **Ryby uciekły!** Czas minął - złowiłeś ${zlowione}/${LOWIENIE_CEL}. Tracisz **-${realnaStrata}** <:Red_roll:1512521789748547715>${bonusPolowaTekst}.`,
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             }
@@ -2766,7 +2891,7 @@ if (interaction.commandName === "skiny") {
 
         if (skin) {
             const cena = await cenaSkina(skin);
-            const bonus = BONUSY_POSTACI[skin.nazwa];
+            const bonus = BONUSY_SKINOW[skin.plik];
             embed.setImage(`attachment://${skin.plik}`);
             if (bonus) {
                 embed.addFields({ name: `✨ Bonus: ${bonus.nazwaBonusu}`, value: bonus.opis });
@@ -2876,6 +3001,12 @@ if (interaction.commandName === "pinkpawsheist") {
         const ilosc = Math.floor(Math.random() * 30) + 1;
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
 
+        let bonusNanally3Tekst = "";
+        if (aktywnyBonus?.bonus.typ === "pinkpawsheist_szansa_extra" && Math.random() < aktywnyBonus.bonus.szansa) {
+            await addSolidDice(interaction.user.id, interaction.guild.id, aktywnyBonus.bonus.wartosc);
+            bonusNanally3Tekst = `\n+${aktywnyBonus.bonus.wartosc} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - ${aktywnyBonus.bonus.nazwaBonusu})`;
+        }
+
         const wiadomosci1 = [
             "Uciekłeś/aś z łupem",
             "Nie zostałeś/aś schwytany/a",
@@ -2887,7 +3018,7 @@ if (interaction.commandName === "pinkpawsheist") {
             .setColor(0x00FF00)
             .setTitle("🐾 Pink Paws Heist - Sukces!")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}` });
+            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}` });
 
         await interaction.editReply({ embeds: [embed] });
 
