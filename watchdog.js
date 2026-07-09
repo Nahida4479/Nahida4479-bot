@@ -19,7 +19,11 @@
 //   bot_dir                 - katalog z bot.js na Pi (domyślnie katalog, w którym leży ten plik watchdog.js -
 //                             bot.js i watchdog.js zawsze są w tym samym repo, więc nie trzeba tego ustawiać
 //                             ręcznie i nazwa/lokalizacja katalogu repo może się zmieniać bez psucia watchdoga)
-//   pm2_process_name        - nazwa procesu pm2 dla bota (domyślnie Nahida-js)
+//   pm2_process_name        - nazwa procesu pm2 dla bota (domyślnie kopia-nest). UWAGA: musi to być
+//                             nazwa dedykowana wyłącznie procesowi bot.js z TEGO repo (Nahida4479-bot) -
+//                             jeśli na Pi działają inne, niepowiązane boty pod pm2, ich nazwa nie może
+//                             się pokrywać z tą wartością, bo watchdog może tym procesem zarządzać
+//                             (restartować/zatrzymywać/usuwać i tworzyć od nowa).
 
 import { createClient } from "@libsql/client";
 import { execSync } from "node:child_process";
@@ -36,10 +40,11 @@ const PROG_SPRAWDZANIA_MS = 20 * 1000; // co ile watchdog sprawdza stan
 // repo, więc to jest odporne na zmianę nazwy/lokalizacji katalogu repo na Pi
 // (w przeciwieństwie do sztywno wpisanej ścieżki).
 const BOT_DIR = process.env.bot_dir || dirname(fileURLToPath(import.meta.url));
-const NAZWA_PROCESU = process.env.pm2_process_name || "Nahida-js";
+const NAZWA_PROCESU = process.env.pm2_process_name || "kopia-nest";
 const EMAIL_DO = process.env.email_do || null;
 
 console.log(`[watchdog] Katalog bota (bot_dir): ${BOT_DIR}`);
+console.log(`[watchdog] Zarządzana nazwa procesu pm2 (pm2_process_name): ${NAZWA_PROCESU}`);
 if (!existsSync(join(BOT_DIR, "bot.js"))) {
     console.error(`[watchdog] UWAGA: nie znaleziono ${join(BOT_DIR, "bot.js")} - watchdog uruchomi pm2 z niewłaściwego katalogu. Ustaw poprawną ścieżkę w zmiennej bot_dir w .env.`);
 }
