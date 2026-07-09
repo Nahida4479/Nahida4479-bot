@@ -76,24 +76,37 @@ async function wyslijMaila(temat, tresc) {
     }
 }
 
-function statusProcesu(nazwa) {
+function informacjeOProcesie(nazwa) {
     try {
         const wyjscie = execSync("pm2 jlist").toString();
         const lista = JSON.parse(wyjscie);
-        const proc = lista.find((p) => p.name === nazwa);
-        if (!proc) return "brak";
-        return proc.pm2_env.status; // "online", "stopped", "errored", ...
+        return lista.find((p) => p.name === nazwa) || null;
     } catch (err) {
         console.error("[watchdog] Błąd odczytu statusu pm2:", err);
-        return "blad";
+        return null;
     }
 }
 
+// Proces pm2 o tej nazwie liczy się jako "prawdziwie działający bot" tylko
+// wtedy, gdy jest online I wskazuje na aktualny katalog repo (BOT_DIR). Sam
+// status "online" nie wystarczy - inna, stara rejestracja o tej samej nazwie
+// (np. sprzed przeniesienia repo na inny katalog) mogłaby zmylić watchdoga,
+// który uznałby, że bot działa, podczas gdy w rzeczywistości działa zombie
+// proces ze starego, nieaktualnego katalogu.
+function botDziala() {
+    const proc = informacjeOProcesie(NAZWA_PROCESU);
+    return !!proc && proc.pm2_env.status === "online" && proc.pm2_env.pm_cwd === BOT_DIR;
+}
+
 function uruchomBota() {
-    const status = statusProcesu(NAZWA_PROCESU);
-    if (status === "online") return;
+    if (botDziala()) return;
+    const proc = informacjeOProcesie(NAZWA_PROCESU);
     try {
-        if (status === "brak") {
+        if (proc && proc.pm2_env.pm_cwd !== BOT_DIR) {
+            console.warn(`[watchdog] Proces pm2 "${NAZWA_PROCESU}" wskazuje na inny katalog (${proc.pm2_env.pm_cwd}) niż aktualny (${BOT_DIR}) - usuwam starą rejestrację i uruchamiam od nowa z właściwego katalogu.`);
+            execSync(`pm2 delete ${NAZWA_PROCESU}`);
+            execSync(`pm2 start bot.js --name ${NAZWA_PROCESU}`, { cwd: BOT_DIR });
+        } else if (!proc) {
             execSync(`pm2 start bot.js --name ${NAZWA_PROCESU}`, { cwd: BOT_DIR });
         } else {
             execSync(`pm2 restart ${NAZWA_PROCESU}`);
@@ -105,8 +118,7 @@ function uruchomBota() {
 }
 
 function zatrzymajBota() {
-    const status = statusProcesu(NAZWA_PROCESU);
-    if (status !== "online") return;
+    if (!botDziala()) return;
     try {
         execSync(`pm2 stop ${NAZWA_PROCESU}`);
         console.log("[watchdog] Bot na Raspberry Pi zatrzymany.");
@@ -117,7 +129,7 @@ function zatrzymajBota() {
 
 // Stan startowy odczytany z rzeczywistego statusu pm2 (a nie założony), żeby
 // restart samego watchdoga nie wywołał zbędnej zmiany stanu/maila.
-let piAktywny = statusProcesu(NAZWA_PROCESU) === "online";
+let piAktywny = botDziala();
 console.log(`[watchdog] Start. Stan początkowy bota na Pi: ${piAktywny ? "aktywny" : "nieaktywny"}.`);
 
 async function sprawdz() {
