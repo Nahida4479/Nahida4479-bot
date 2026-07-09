@@ -269,25 +269,6 @@ client.once("ready", async () => {
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log("Komendy zarejestrowane")
 
-    // Heartbeat systemu failover Nest <-> Raspberry Pi - watchdog.js na Pi czyta
-    // wiersz "nest" z bot_heartbeat, żeby wykryć awarię i ewentualnie przejąć
-    // kontrolę. NAZWA_INSTANCJI ustawiana przez zmienną środowiskową instance_name
-    // (nest / pi) w .env - bez niej wiersz zapisuje się jako "nieznana" i failover
-    // po prostu go ignoruje.
-    const NAZWA_INSTANCJI = process.env.instance_name || "nieznana";
-    const zapiszHeartbeat = async () => {
-        try {
-            await db.execute({
-                sql: "INSERT INTO bot_heartbeat (instancja, ostatnie_bicie) VALUES (?, ?) ON CONFLICT(instancja) DO UPDATE SET ostatnie_bicie = ?",
-                args: [NAZWA_INSTANCJI, Date.now(), Date.now()],
-            });
-        } catch (err) {
-            console.error("Błąd zapisu heartbeat:", err);
-        }
-    };
-    await zapiszHeartbeat();
-    setInterval(zapiszHeartbeat, 15000);
-
     setInterval(async () => {
         try {
             // Termin kolejnego spawnu trzymamy w bazie (nie w pamięci) - inaczej każdy
