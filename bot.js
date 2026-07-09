@@ -4,7 +4,7 @@ import { createClient } from "@libsql/client";
 import "dotenv/config";
 import { existsSync } from "fs";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js"
-import { db, initDB } from "./create-database-table.js";
+import { db, initDB, DbTimeoutError } from "./create-database-table.js";
 import { rozpocznijMajong } from "./majong.js";
 
 // Nest i Raspberry Pi mogą mieć różne sieci (np. Nest bywa IPv6-only, Pi ma
@@ -3505,10 +3505,14 @@ if (interaction.commandName === "help") {
     } catch (error) {
         console.error("Błąd w interactionCreate:", error);
         try {
+            const tresc = error instanceof DbTimeoutError
+                ? `❗ Baza danych nie odpowiada. Ping bota: **${client.ws.ping}ms**`
+                : "❗ Wystąpił nieoczekiwany błąd. Spróbuj ponownie.";
+            const ephemeral = !(error instanceof DbTimeoutError);
             if (interaction.replied || interaction.deferred) {
-                await interaction.followUp({ content: "❗ Wystąpił nieoczekiwany błąd. Spróbuj ponownie.", ephemeral: true });
+                await interaction.followUp({ content: tresc, ephemeral });
             } else {
-                await interaction.reply({ content: "❗ Wystąpił nieoczekiwany błąd. Spróbuj ponownie.", ephemeral: true });
+                await interaction.reply({ content: tresc, ephemeral });
             }
         } catch {}
     }

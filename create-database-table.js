@@ -6,6 +6,27 @@ export const db = createClient({
     authToken: process.env.token_db,
 });
 
+// Baza bywa nieosiągalna sieciowo (patrz problemy z łącznością na Neście) - bez
+// tego zawieszony db.execute() trzyma komendę w stanie "myśli..." aż do limitu
+// czasu samego Discorda (kilkanaście minut). Owijamy execute() limitem czasu,
+// żeby komendy mogły to wykryć i pokazać użytkownikowi czytelny komunikat.
+export class DbTimeoutError extends Error {
+    constructor() {
+        super("Baza danych nie odpowiedziała w wyznaczonym czasie");
+        this.name = "DbTimeoutError";
+    }
+}
+
+const DB_TIMEOUT_MS = Number(process.env.db_timeout_ms) || 8000;
+const oryginalneExecute = db.execute.bind(db);
+db.execute = (...args) => {
+    let timer;
+    const limitCzasu = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new DbTimeoutError()), DB_TIMEOUT_MS);
+    });
+    return Promise.race([oryginalneExecute(...args), limitCzasu]).finally(() => clearTimeout(timer));
+};
+
 // Każdy krok osobno w try/catch - żeby awaria jednej tabeli nie przerywała
 // w milczeniu tworzenia/aktualizowania reszty.
 async function bezpiecznie(opis, fn) {
