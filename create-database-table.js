@@ -95,6 +95,15 @@ export async function initDB() {
             PRIMARY KEY (user_id, guild_id)
         )`);
 
+        // Heartbeat systemu failover Nest <-> Raspberry Pi - każda instancja bota
+        // (rozróżniana zmienną środowiskową instance_name) zapisuje tu swój znacznik
+        // czasu co ok. 15s, dopóki działa. watchdog.js na Pi odczytuje wiersz "nest",
+        // żeby wykryć awarię i ewentualnie przejąć kontrolę.
+        await db.execute(`CREATE TABLE IF NOT EXISTS bot_heartbeat (
+            instancja TEXT PRIMARY KEY,
+            ostatnie_bicie INTEGER
+        )`);
+
         await db.execute(`CREATE TABLE IF NOT EXISTS skiny (
             plik TEXT PRIMARY KEY,
             nazwa TEXT NOT NULL,
