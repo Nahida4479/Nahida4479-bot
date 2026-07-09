@@ -158,6 +158,31 @@ client.once("ready", async () => {
             ))
         )
         .addSubcommand((sub) => sub
+            .setName("zabierz-skina")
+            .setDescription("Zabierz graczowi skina z ekwipunku")
+            .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
+            .addStringOption((opt) => opt.setName("skin").setDescription("Skin").setRequired(true).addChoices(
+                { name: "Nanally (Nanally_skin.jpg)", value: "Nanally_skin.jpg" },
+                { name: "Nanally (Nanally3.jpg)", value: "Nanally3.jpg" },
+                { name: "Nanally (Nanally4.jpg)", value: "Nanally4.jpg" },
+                { name: "Nanally (Nanally5.jpg)", value: "Nanally5.jpg" },
+                { name: "Chiz (Chiz2.jpg)", value: "Chiz2.jpg" },
+                { name: "Chiz (Chiz3.jpg)", value: "Chiz3.jpg" },
+                { name: "Daffodill (Daffodill2.jpg)", value: "Daffodill2.jpg" },
+                { name: "Fadia (Fadia2.jpg)", value: "Fadia2.jpg" },
+                { name: "Hotori (Hotori3.jpg)", value: "Hotori3.jpg" },
+                { name: "Jiuyuan (Jiuyuan2.jpg)", value: "Jiuyuan2.jpg" },
+                { name: "Mint (Mint1.jpg)", value: "Mint1.jpg" },
+                { name: "Mint (Mint3.jpg)", value: "Mint3.jpg" },
+                { name: "Sakiri (Sakiri2.jpg)", value: "Sakiri2.jpg" },
+                { name: "MC (m_mc1.jpg)", value: "m_mc1.jpg" },
+                { name: "MC (m_mc2.jpg)", value: "m_mc2.jpg" },
+                { name: "MC (m_mc3.jpg)", value: "m_mc3.jpg" },
+                { name: "MC (m_mc4.jpg)", value: "m_mc4.jpg" },
+                { name: "MC (m_mc5.jpg)", value: "m_mc5.jpg" },
+            ))
+        )
+        .addSubcommand((sub) => sub
             .setName("info")
             .setDescription("Podgląd Solid Dice, cooldownów, rankingu i bonusu gracza")
             .addUserOption((opt) => opt.setName("uzytkownik").setDescription("Gracz").setRequired(true))
@@ -2103,6 +2128,41 @@ client.on("interactionCreate", async (interaction) => {
             } catch (err) {
                 await interaction.editReply({ content: `❗ ${user} już posiada ten skin.` });
             }
+            return;
+        }
+
+        if (podkomenda === "zabierz-skina") {
+            const plik = interaction.options.getString("skin");
+            const posiada = await db.execute({
+                sql: "SELECT 1 FROM skiny_gracza WHERE user_id = ? AND guild_id = ? AND plik = ?",
+                args: [user.id, interaction.guild.id, plik],
+            });
+            if (posiada.rows.length === 0) {
+                await interaction.editReply({ content: `❗ ${user} nie posiada skina \`${plik}\`.` });
+                return;
+            }
+
+            const aktywnyWynik = await db.execute({
+                sql: "SELECT 1 FROM profil_wybrany_skin WHERE user_id = ? AND guild_id = ? AND plik = ?",
+                args: [user.id, interaction.guild.id, plik],
+            });
+            const bylAktywny = aktywnyWynik.rows.length > 0;
+
+            await db.execute({
+                sql: "DELETE FROM skiny_gracza WHERE user_id = ? AND guild_id = ? AND plik = ?",
+                args: [user.id, interaction.guild.id, plik],
+            });
+            // Skin nie jest już posiadany, więc jego bonus i tak przestałby działać
+            // (pobierzAktywnySkinIBonus wymaga wciąż posiadanego skina), ale usuwamy
+            // też sam wybór w /profil, żeby nie zostawiać martwego wpisu w bazie.
+            if (bylAktywny) {
+                await db.execute({
+                    sql: "DELETE FROM profil_wybrany_skin WHERE user_id = ? AND guild_id = ? AND plik = ?",
+                    args: [user.id, interaction.guild.id, plik],
+                });
+            }
+
+            await interaction.editReply({ content: `✅ Zabrano skina \`${plik}\` graczowi ${user}${bylAktywny ? " (był to jego aktywny bonus - wyłączony)" : ""}.` });
             return;
         }
 
