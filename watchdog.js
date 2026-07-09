@@ -16,20 +16,33 @@
 //   email_pass              - "hasło aplikacji" Gmail (https://myaccount.google.com/apppasswords)
 //   email_do                - adres odbiorcy powiadomień (bez tego watchdog nie wyśle maila)
 // Opcjonalne:
-//   bot_dir                 - katalog z bot.js na Pi (domyślnie /home/pi/bot-java)
+//   bot_dir                 - katalog z bot.js na Pi (domyślnie katalog, w którym leży ten plik watchdog.js -
+//                             bot.js i watchdog.js zawsze są w tym samym repo, więc nie trzeba tego ustawiać
+//                             ręcznie i nazwa/lokalizacja katalogu repo może się zmieniać bez psucia watchdoga)
 //   pm2_process_name        - nazwa procesu pm2 dla bota (domyślnie Nahida-js)
 
 import { createClient } from "@libsql/client";
 import { execSync } from "node:child_process";
 import nodemailer from "nodemailer";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
 import "dotenv/config";
 
 const PROG_AWARII_MS = 60 * 1000; // Nest uznany za martwy po tylu ms bez heartbeatu
 const PROG_SPRAWDZANIA_MS = 20 * 1000; // co ile watchdog sprawdza stan
 
-const BOT_DIR = process.env.bot_dir || "/home/pi/bot-java";
+// Domyślnie katalog tego pliku - watchdog.js zawsze leży obok bot.js w tym samym
+// repo, więc to jest odporne na zmianę nazwy/lokalizacji katalogu repo na Pi
+// (w przeciwieństwie do sztywno wpisanej ścieżki).
+const BOT_DIR = process.env.bot_dir || dirname(fileURLToPath(import.meta.url));
 const NAZWA_PROCESU = process.env.pm2_process_name || "Nahida-js";
 const EMAIL_DO = process.env.email_do || null;
+
+console.log(`[watchdog] Katalog bota (bot_dir): ${BOT_DIR}`);
+if (!existsSync(join(BOT_DIR, "bot.js"))) {
+    console.error(`[watchdog] UWAGA: nie znaleziono ${join(BOT_DIR, "bot.js")} - watchdog uruchomi pm2 z niewłaściwego katalogu. Ustaw poprawną ścieżkę w zmiennej bot_dir w .env.`);
+}
 
 if (!EMAIL_DO) {
     console.warn("[watchdog] Brak email_do w .env - powiadomienia mailowe o awarii/powrocie nie będą wysyłane.");
