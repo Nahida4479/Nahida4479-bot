@@ -1,10 +1,17 @@
 // token_bot token_db url_db
+import { setDefaultResultOrder } from "node:dns";
 import { createClient } from "@libsql/client";
 import "dotenv/config";
 import { existsSync } from "fs";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js"
 import { db, initDB } from "./create-database-table.js";
 import { rozpocznijMajong } from "./majong.js";
+
+// Na części hostingów (np. niedziałający/zablokowany wychodzący IPv6) Node
+// domyślnie i tak najpierw próbuje adresu IPv6 z DNS i wisi na connect
+// timeout zamiast od razu spróbować IPv4 - stąd błędy typu ConnectTimeoutError
+// do discord.com/Turso mimo że sieć IPv4 działa poprawnie.
+setDefaultResultOrder("ipv4first");
 
 const OWNER_IDS = ["1096839401524445264", "339487125684617227", "897497223380762624", "663480441772310556"  ]; // Nahida, Mia, Mlufka, Wieszak
 

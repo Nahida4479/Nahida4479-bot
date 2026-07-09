@@ -25,6 +25,7 @@
 //                             się pokrywać z tą wartością, bo watchdog może tym procesem zarządzać
 //                             (restartować/zatrzymywać/usuwać i tworzyć od nowa).
 
+import { setDefaultResultOrder } from "node:dns";
 import { createClient } from "@libsql/client";
 import { execSync } from "node:child_process";
 import nodemailer from "nodemailer";
@@ -32,6 +33,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import "dotenv/config";
+
+// Patrz komentarz w bot.js - część hostingów ma niedziałający wychodzący IPv6,
+// co bez tego objawia się jako ConnectTimeoutError mimo sprawnego IPv4.
+setDefaultResultOrder("ipv4first");
 
 const PROG_AWARII_MS = 60 * 1000; // Nest uznany za martwy po tylu ms bez heartbeatu
 const PROG_SPRAWDZANIA_MS = 20 * 1000; // co ile watchdog sprawdza stan
