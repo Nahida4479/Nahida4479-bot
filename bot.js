@@ -1903,7 +1903,7 @@ function losowyOdstepSpawnuMammona() {
 
 const HELP_STRONY = [
     {
-        komenda: "/daily",
+        komenda: `${WIEZ_EMOJI.Sakiri} /daily`,
         plik: "daily",
         opis: "Odbierz codzienną nagrodę Solid Dice.",
         zdobywasz: "10-14 Solid Dice",
@@ -1911,7 +1911,7 @@ const HELP_STRONY = [
         cooldown: "24 godziny",
     },
     {
-        komenda: "/work",
+        komenda: `${WIEZ_EMOJI.Chiz} /work`,
         plik: "work",
         opis: "Idź do pracy i zarób Solid Dice.",
         zdobywasz: "5-9 Solid Dice",
@@ -1919,7 +1919,7 @@ const HELP_STRONY = [
         cooldown: "10 minut",
     },
     {
-        komenda: "/pinkpawsheist",
+        komenda: `${WIEZ_EMOJI.Fadia} /pinkpawsheist`,
         plik: "pinkpawsheist",
         opis: "Weź udział w napadzie Pink Paws Heist - 50% szans na sukces, 50% na porażkę.",
         zdobywasz: "1-30 Solid Dice (sukces, 50% szans)",
@@ -1935,7 +1935,7 @@ const HELP_STRONY = [
         cooldown: "Brak - można sprawdzać w każdej chwili",
     },
     {
-        komenda: "/wyścig",
+        komenda: `${WIEZ_EMOJI.Nanally} /wyścig`,
         plik: "wyscig",
         opis: "Prowadź samochód i omijaj przeszkody przez 10 ticków, żeby dojechać do mety.",
         zdobywasz: "5-15 Solid Dice (dojazd do mety)",
@@ -1943,7 +1943,7 @@ const HELP_STRONY = [
         cooldown: "30 minut",
     },
     {
-        komenda: "/łowienie",
+        komenda: `${WIEZ_EMOJI.Chaos} /łowienie`,
         plik: "lowienie",
         opis: "Steruj łódką i złap 3 ryby zanim skończy się czas.",
         zdobywasz: "1-10 Solid Dice (złowienie 3 ryb w 25 sekund)",
@@ -1951,7 +1951,7 @@ const HELP_STRONY = [
         cooldown: "10 minut",
     },
     {
-        komenda: "/automat",
+        komenda: `${WIEZ_EMOJI.Lacrimosa} /automat`,
         plik: "automat",
         opis: "Steruj szczypcami automatu i złap zabawkę zanim skończy się czas - szczypce bywają kapryśne, więc nawet trafienie w zabawkę nie gwarantuje udanego chwytu.",
         zdobywasz: "1-10 Solid Dice (udany chwyt zabawki)",
@@ -1967,12 +1967,28 @@ const HELP_STRONY = [
         cooldown: "Brak - ograniczone tylko posiadanym saldem",
     },
     {
-        komenda: "/mahjong",
+        komenda: `${WIEZ_EMOJI.Hotori} /mahjong`,
         plik: "majong",
         opis: "Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób.",
         zdobywasz: "10-30 Solid Dice za dokończenie partii, dodatkowe +50 za wygraną",
         tracisz: "Nie dotyczy - w najgorszym razie nie dostajesz nagrody (remis, partia przerwana)",
         cooldown: "1 godzina (dla osoby zakładającej grę)",
+    },
+    {
+        komenda: "🎮 /papier-kamień-nożyce",
+        plik: "rps",
+        opis: "Wyzwij innego gracza na pojedynek Papier-Kamień-Nożyce o Solid Dice - ustawiasz stawkę, przeciwnik dołącza, obaj wybieracie postać z /plecak i gracie do 3 wygranych rund (10 sekund na wybór, remisy w rundzie się powtarzają). Wygrana postacią z systemu więzi (patrz /bond) levelu je jej więź.",
+        zdobywasz: "Stawka pojedynku od przeciwnika (wygrana)",
+        tracisz: "Stawka pojedynku na rzecz przeciwnika (przegrana)",
+        cooldown: "15 minut (tylko dla osoby wyzywającej - dołączenie do cudzego pojedynku jest bez cooldownu)",
+    },
+    {
+        komenda: `${WIEZ_EMOJI.Nanally} /bond`,
+        plik: "bond",
+        opis: `Sprawdź system więzi z postaciami: pełną listę 10 poziomów bonusów dla 7 postaci (${WIEZ_EMOJI.Nanally} Nanally, ${WIEZ_EMOJI.Hotori} Hotori, ${WIEZ_EMOJI.Lacrimosa} Lacrimosa, ${WIEZ_EMOJI.Chaos} Chaos, ${WIEZ_EMOJI.Sakiri} Sakiri, ${WIEZ_EMOJI.Chiz} Chiz, ${WIEZ_EMOJI.Fadia} Fadia) oraz swój postęp - poziom, pasek % i ile Solid Dice brakuje do kolejnego.`,
+        zdobywasz: "Nie dotyczy - to tylko podgląd systemu więzi",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
     },
     {
         komenda: "/skiny",
