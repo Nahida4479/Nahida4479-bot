@@ -2067,6 +2067,20 @@ const HELP_STRONY = [
     },
 ];
 
+// StringSelectMenuOption.label jest zawsze czystym tekstem - Discord NIE
+// renderuje w nim składni własnych emotek <:nazwa:id> (pokazuje ją dosłownie
+// jako tekst). Żeby emotka faktycznie wyświetliła się jako ikonka opcji,
+// trzeba ją wyciąć z etykiety i przekazać osobno przez pole "emoji".
+function rozbijEtykieteHelp(tekst) {
+    const wlasna = tekst.match(/^<a?:(\w+):(\d+)>\s*(.*)$/);
+    if (wlasna) return { emoji: { id: wlasna[2], name: wlasna[1] }, label: wlasna[3] };
+
+    const unicode = tekst.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
+    if (unicode) return { emoji: unicode[1], label: unicode[2] };
+
+    return { emoji: undefined, label: tekst };
+}
+
 function budujStroneHelp(indeks) {
     const strona = HELP_STRONY[indeks];
     const embedSzybki = new EmbedBuilder()
@@ -4089,11 +4103,15 @@ if (interaction.commandName === "help") {
             .setCustomId("help_wybierz")
             .setPlaceholder("📖 Wybierz komendę...")
             .addOptions(
-                HELP_STRONY.map((strona, i) => ({
-                    label: strona.komenda,
-                    value: String(i),
-                    default: i === aktualnaStronaHelp,
-                }))
+                HELP_STRONY.map((strona, i) => {
+                    const { emoji, label } = rozbijEtykieteHelp(strona.komenda);
+                    return {
+                        label: label || strona.komenda,
+                        value: String(i),
+                        default: i === aktualnaStronaHelp,
+                        ...(emoji ? { emoji } : {}),
+                    };
+                })
             )
     );
 
