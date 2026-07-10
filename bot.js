@@ -1996,7 +1996,7 @@ const HELP_STRONY = [
     {
         komenda: "🎮 /papier-kamień-nożyce",
         plik: "rps",
-        opis: "Wyzwij innego gracza na pojedynek Papier-Kamień-Nożyce o Solid Dice - ustawiasz stawkę, przeciwnik dołącza, obaj wybieracie postać z /plecak i gracie do 3 wygranych rund (10 sekund na wybór, remisy w rundzie się powtarzają). Wygrana postacią z systemu więzi (patrz /bond) levelu je jej więź.",
+        opis: "Wyzwij innego gracza na pojedynek Papier-Kamień-Nożyce o Solid Dice - ustawiasz stawkę, przeciwnik dołącza, obaj wybieracie postać z /plecak i gracie do 3 wygranych rund (10 sekund na wybór, remisy w rundzie się powtarzają).",
         zdobywasz: "Stawka pojedynku od przeciwnika (wygrana)",
         tracisz: "Stawka pojedynku na rzecz przeciwnika (przegrana)",
         cooldown: "15 minut (tylko dla osoby wyzywającej - dołączenie do cudzego pojedynku jest bez cooldownu)",
