@@ -1071,14 +1071,22 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
         wygraneP2 > 0 ? `${p2.username} zaczyna z 1 punktem (więź 10. poziomu z **${postacP2}**)!` : null,
     ].filter(Boolean).join("\n");
 
+    // Pole scoreboardu jednego gracza - postać (z emotką) i to, co aktualnie wybrał
+    // (albo "jeszcze nie wybrał", w trakcie oczekiwania na ruchy). Osobne, pełne
+    // pola (nie inline) - żeby na telefonie też było wyraźnie widać, kto co gra.
+    const poleGracza = (username, postac, wybor) => ({
+        name: `${WIEZ_EMOJI[postac] || ""} ${username} - ${postac}`,
+        value: wybor ? `${RPS_WYBORY[wybor].emoji} **${wybor.toUpperCase()}**` : "⏳ *jeszcze nie wybrał/a*",
+    });
+    const poleWyniku = () => ({ name: "🏁 Wynik", value: `**${wygraneP1} : ${wygraneP2}**\n(do 3 wygranych)` });
+
     let runda = 1;
     while (wygraneP1 < 3 && wygraneP2 < 3 && runda <= RPS_MAX_RUND) {
-        const naglowek = `${WIEZ_EMOJI[postacP1] || ""} **${p1.username}** (${postacP1}) vs ${WIEZ_EMOJI[postacP2] || ""} **${p2.username}** (${postacP2})\n\nWynik: **${wygraneP1} - ${wygraneP2}** (do 3 wygranych)`;
-
         const embedRundy = new EmbedBuilder()
             .setColor(0xE91E63)
             .setTitle(`🎮 Runda ${runda} - Papier-Kamień-Nożyce`)
-            .setDescription(`${naglowek}\n\nMacie 10 sekund na wybór!${runda === 1 && startBonusTekst ? `\n\n${startBonusTekst}` : ""}`);
+            .setDescription(`Macie 10 sekund na wybór!${runda === 1 && startBonusTekst ? `\n\n${startBonusTekst}` : ""}`)
+            .addFields(poleGracza(p1.username, postacP1, null), poleWyniku(), poleGracza(p2.username, postacP2, null));
 
         const przyciski = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId("rps_papier").setLabel("Papier").setEmoji("📄").setStyle(ButtonStyle.Primary),
@@ -1147,10 +1155,12 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
         const embedWynikuRundy = new EmbedBuilder()
             .setColor(0xE91E63)
             .setTitle(`🎮 Runda ${runda} - wynik`)
-            .setDescription(`${naglowek}\n\n${tekstWyniku}\n\nWynik po tej rundzie: **${wygraneP1} - ${wygraneP2}**`);
+            .setDescription(tekstWyniku)
+            .addFields(poleGracza(p1.username, postacP1, wyborP1), poleWyniku(), poleGracza(p2.username, postacP2, wyborP2));
 
         await wiadomosc.edit({ embeds: [embedWynikuRundy], components: [] }).catch(() => {});
-        await new Promise((r) => setTimeout(r, 2000));
+        // 3s przerwy, żeby dało się wyraźnie zobaczyć kto co wybrał i kto aktualnie prowadzi
+        await new Promise((r) => setTimeout(r, 3000));
 
         runda++;
     }
