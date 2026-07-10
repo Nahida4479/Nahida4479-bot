@@ -849,7 +849,7 @@ const WIEZ_POSTACI = {
             WIEZ_START_RPS,
         ],
     },
-    Chiz: {
+    Fadia: {
         komenda: "work",
         poziomy: [
             { typ: "extra_sd", wartosc: 1, opis: "+1 Solid Dice za wykonaną `/work`." },
@@ -864,7 +864,7 @@ const WIEZ_POSTACI = {
             WIEZ_START_RPS,
         ],
     },
-    Fadia: {
+    Chiz: {
         komenda: "pinkpawsheist",
         poziomy: [
             { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za sukces w `/pinkpawsheist`." },
@@ -955,11 +955,14 @@ const WIEZ_EMOJI = {
     Nanally: "<:Nanally:1509077750399500439>",
     Hotori: "<:AngryHotori:1497676553029685440>",
     Lacrimosa: "<:Lacrimosa:1514312694872805537>",
-    Chaos: "🌀",
+    Chaos: "<:Chaos:1521538645654372574>",
     Sakiri: "<:Sakiri:1497676635611201718>",
     Chiz: "<:chiz_scared:1497298090825089065>",
     Fadia: "<:Fadia:1497675274807148657>",
 };
+
+// Emotka dodawana do informacji o zdobytej nagrodzie w komendach ekonomii.
+const EMOJI_NAGRODA = "<:NanallyRose:1307500093146009691>";
 
 async function pobierzPostacieGracza(userId, guildId) {
     const wynik = await db.execute({
@@ -1115,7 +1118,9 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
         let tekstWyniku;
 
         if (!wyborP1 && !wyborP2) {
-            tekstWyniku = "⌛ Nikt nie zdążył wybrać - runda powtórzona bez punktu.";
+            wygraneP1++;
+            wygraneP2++;
+            tekstWyniku = "⌛ Nikt nie zdążył wybrać - remis rundy, punkt dla obu.";
         } else if (!wyborP1) {
             wygraneP2++;
             tekstWyniku = `⌛ ${p1.username} nie zdążył/a wybrać - punkt dla ${p2.username}!`;
@@ -1127,7 +1132,9 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
             const emojiP1 = RPS_WYBORY[wyborP1].emoji;
             const emojiP2 = RPS_WYBORY[wyborP2].emoji;
             if (wynikRundy === "remis") {
-                tekstWyniku = `${emojiP1} vs ${emojiP2} - remis! Runda powtórzona bez punktu.`;
+                wygraneP1++;
+                wygraneP2++;
+                tekstWyniku = `${emojiP1} vs ${emojiP2} - remis! Punkt dla obu.`;
             } else if (wynikRundy === "a") {
                 wygraneP1++;
                 tekstWyniku = `${emojiP1} vs ${emojiP2} - **${wyborP1}** bije **${wyborP2}**! Punkt dla ${p1.username}.`;
@@ -1148,7 +1155,11 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
         runda++;
     }
 
-    const zwyciezca = wygraneP1 >= 3 ? p1 : wygraneP2 >= 3 ? p2 : null;
+    // Remis rundy liczy się jako punkt dla obu, więc mecz może zakończyć się
+    // remisem 3:3 (obaj naraz osiągają 3 wygrane) - wtedy nikt nic nie dostaje,
+    // niezależnie od tego, że wygraneP1 >= 3 samo w sobie mogłoby wskazywać na p1.
+    const remis3na3 = wygraneP1 >= 3 && wygraneP2 >= 3;
+    const zwyciezca = remis3na3 ? null : wygraneP1 >= 3 ? p1 : wygraneP2 >= 3 ? p2 : null;
     const przegrany = zwyciezca === p1 ? p2 : zwyciezca === p2 ? p1 : null;
     const postacZwyciezcy = zwyciezca === p1 ? postacP1 : postacP2;
 
@@ -1174,7 +1185,7 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
 
     const embedKoniec = new EmbedBuilder()
         .setColor(0x2ECC71)
-        .setTitle("🏆 Koniec pojedynku!")
+        .setTitle(`${EMOJI_NAGRODA} 🏆 Koniec pojedynku!`)
         .setDescription(
             `**${zwyciezca.username}** wygrywa ${wygraneP1} - ${wygraneP2} grając **${postacZwyciezcy}**!\n\n` +
             `+${realnaStawka} Solid Dice <:Red_roll:1512521789748547715> dla ${zwyciezca}\n` +
@@ -1911,7 +1922,7 @@ const HELP_STRONY = [
         cooldown: "24 godziny",
     },
     {
-        komenda: `${WIEZ_EMOJI.Chiz} /work`,
+        komenda: `${WIEZ_EMOJI.Fadia} /work`,
         plik: "work",
         opis: "Idź do pracy i zarób Solid Dice.",
         zdobywasz: "5-9 Solid Dice",
@@ -1919,7 +1930,7 @@ const HELP_STRONY = [
         cooldown: "10 minut",
     },
     {
-        komenda: `${WIEZ_EMOJI.Fadia} /pinkpawsheist`,
+        komenda: `${WIEZ_EMOJI.Chiz} /pinkpawsheist`,
         plik: "pinkpawsheist",
         opis: "Weź udział w napadzie Pink Paws Heist - 50% szans na sukces, 50% na porażkę.",
         zdobywasz: "1-30 Solid Dice (sukces, 50% szans)",
@@ -2479,7 +2490,7 @@ client.on("interactionCreate", async (interaction) => {
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setTitle("<:Red_roll:1512521789748547715> Daily")
+            .setTitle(`${EMOJI_NAGRODA} Daily`)
             .setDescription(wiadomosc)
             .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
@@ -2843,7 +2854,7 @@ client.on("interactionCreate", async (interaction) => {
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setTitle("<:Red_roll:1512521789748547715> Work")
+            .setTitle(`${EMOJI_NAGRODA} Work`)
             .setDescription(wiadomosc)
             .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNadgodzin > 0 ? `\n+${bonusNadgodzin} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - Nadgodziny!)` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
@@ -2992,7 +3003,7 @@ client.on("interactionCreate", async (interaction) => {
             }
 
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                content: naglowekWyscigu + rysujPlansze() + `\n\n${EMOJI_NAGRODA} 🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
@@ -3085,7 +3096,7 @@ client.on("interactionCreate", async (interaction) => {
                 }
 
                 await interaction.editReply({
-                    content: rysujJezioro() + `\n\n🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                    content: rysujJezioro() + `\n\n${EMOJI_NAGRODA} 🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             } else {
@@ -3209,7 +3220,7 @@ client.on("interactionCreate", async (interaction) => {
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaAutomatu, aktywnyBonus);
                 const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "automat");
                 await interaction.editReply({
-                    content: rysujAutomat() + `\n\n🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                    content: rysujAutomat() + `\n\n${EMOJI_NAGRODA} 🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                     components: [przyciskiAutomatu(true)],
                 }).catch(() => {});
             } else {
@@ -3964,7 +3975,7 @@ if (interaction.commandName === "pinkpawsheist") {
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setTitle("🐾 Pink Paws Heist - Sukces!")
+            .setTitle(`${EMOJI_NAGRODA} 🐾 Pink Paws Heist - Sukces!`)
             .setDescription(wiadomosc)
             .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}` });
 

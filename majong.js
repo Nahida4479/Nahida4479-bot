@@ -658,7 +658,7 @@ async function zakonczGre(gra, wynik, deps) {
     const tytul = wynik.przerwana
         ? "🀄 Partia przerwana - brak aktywności graczy"
         : wynik.zwyciezca
-            ? `🀄 ${wynik.sposob}! Wygrywa ${wynik.zwyciezca.nazwa}!`
+            ? `<:NanallyRose:1307500093146009691> 🀄 ${wynik.sposob}! Wygrywa ${wynik.zwyciezca.nazwa}!`
             : "🀄 Remis - mur się wyczerpał";
     const embed = new EmbedBuilder()
         .setColor(wynik.zwyciezca ? 0x2ECC71 : 0x555555)

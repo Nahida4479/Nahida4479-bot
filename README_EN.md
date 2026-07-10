@@ -110,8 +110,8 @@ Playing (and winning) with a given character in `/papier-kamień-nożyce` builds
 | Lacrimosa | `/automat` |
 | Chaos | `/łowienie` |
 | Sakiri | `/daily` |
-| Chiz | `/work` |
-| Fadia | `/pinkpawsheist` |
+| Fadia | `/work` |
+| Chiz | `/pinkpawsheist` |
 
 Levels 1-9 grant growing bonuses specific to the assigned command (extra Solid Dice, shorter cooldown, a chance at a bonus reward), while level 10 is shared by every character - a starting point in `/papier-kamień-nożyce` itself. Check the full level list and your own progress in `/bond`.
 

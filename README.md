@@ -113,8 +113,8 @@ Grając (i wygrywając) daną postacią w `/papier-kamień-nożyce`, buduje się
 | Lacrimosa | `/automat` |
 | Chaos | `/łowienie` |
 | Sakiri | `/daily` |
-| Chiz | `/work` |
-| Fadia | `/pinkpawsheist` |
+| Fadia | `/work` |
+| Chiz | `/pinkpawsheist` |
 
 Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 jest wspólny dla wszystkich postaci - startowy punkt w `/papier-kamień-nożyce`. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`.
 
