@@ -1995,7 +1995,7 @@ const HELP_STRONY = [
     },
     {
         komenda: "🎮 /papier-kamień-nożyce",
-        plik: "rps",
+        plik: "papier-kamień-nożyce",
         opis: "Wyzwij innego gracza na pojedynek Papier-Kamień-Nożyce o Solid Dice - ustawiasz stawkę, przeciwnik dołącza, obaj wybieracie postać z /plecak i gracie do 3 wygranych rund (10 sekund na wybór, remisy w rundzie się powtarzają).",
         zdobywasz: "Stawka pojedynku od przeciwnika (wygrana)",
         tracisz: "Stawka pojedynku na rzecz przeciwnika (przegrana)",
@@ -2095,6 +2095,7 @@ function budujStroneHelp(indeks) {
         .setFooter({ text: `Strona ${indeks + 1}/${HELP_STRONY.length}` });
 
     const sciezkaGif = `./Gra/video/${strona.plik}.gif`;
+    const sciezkaPng = `./Gra/video/${strona.plik}.png`;
     const pliki = [];
     let embedPelny = embedSzybki;
 
@@ -2103,6 +2104,9 @@ function budujStroneHelp(indeks) {
         // Osobny embed z gifem - strona pokazuje się od razu z embedSzybki (bez wgrywania
         // pliku), a gif dogrywa się drugą, wolniejszą edycją, żeby nie blokować tekstu
         embedPelny = EmbedBuilder.from(embedSzybki).setImage(`attachment://${strona.plik}.gif`);
+    } else if (existsSync(sciezkaPng)) {
+        pliki.push(new AttachmentBuilder(sciezkaPng, { name: `${strona.plik}.png` }));
+        embedPelny = EmbedBuilder.from(embedSzybki).setImage(`attachment://${strona.plik}.png`);
     } else {
         embedSzybki.addFields({ name: "🎥 Wideo", value: "Wkrótce dodane" });
     }
