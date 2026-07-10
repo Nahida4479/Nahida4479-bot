@@ -1949,8 +1949,8 @@ const HELP_STRONY = [
         komenda: `${WIEZ_EMOJI.Chiz} /pinkpawsheist`,
         plik: "pinkpawsheist",
         opis: "Weź udział w napadzie Pink Paws Heist - 50% szans na sukces, 50% na porażkę.",
-        zdobywasz: "1-30 Solid Dice (sukces, 50% szans)",
-        tracisz: "1-30 Solid Dice (porażka, 50% szans - nigdy więcej niż masz)",
+        zdobywasz: "30-150 Solid Dice (sukces, 50% szans)",
+        tracisz: "10-50 Solid Dice (porażka, 50% szans - nigdy więcej niż masz)",
         cooldown: "48 godzin",
     },
     {
@@ -3994,7 +3994,7 @@ if (interaction.commandName === "pinkpawsheist") {
     const wygrana = Math.random() < 0.5;
 
     if (wygrana) {
-        const ilosc = Math.floor(Math.random() * 30) + 1;
+        const ilosc = losowaLiczba(30, 150);
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
         const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "pinkpawsheist");
 
@@ -4025,7 +4025,7 @@ if (interaction.commandName === "pinkpawsheist") {
             args: [interaction.user.id, interaction.guild.id],
         });
         const obecneSD = portfel.rows.length > 0 ? Number(portfel.rows[0].solid_dice) : 0;
-        const proba = Math.floor(Math.random() * 30) + 1;
+        const proba = losowaLiczba(10, 50);
         const realnaStrata = Math.min(proba, obecneSD);
 
         await db.execute({
