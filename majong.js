@@ -647,6 +647,10 @@ async function zakonczGre(gra, wynik, deps) {
                 if (bonusTekst) bonusPostaciTekst = ` + ${bonusTekst}`;
             }
 
+            // Bonus więzi (np. Hotori) - niezależny od bonusu skina, może zadziałać jednocześnie.
+            const { bonusTekst: bonusWieziTekst } = await deps.dodajBonusWiezi(gracz.id, gra.guildId, "mahjong");
+            if (bonusWieziTekst) bonusPostaciTekst += ` + ${bonusWieziTekst}`;
+
             podsumowanie += `<@${gracz.id}> +${nagroda} <:Red_roll:1512521789748547715>${bonus}${bonusPostaciTekst}\n`;
         }
     }

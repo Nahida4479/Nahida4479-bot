@@ -144,6 +144,18 @@ export async function initDB() {
         PRIMARY KEY (user_id, guild_id)
     )`));
 
+    // Więź z postacią - zdobywana wyłącznie przez wygrane w /papier-kamień-nożyce
+    // graną tą postacią. Poziom więzi (1-10, liczony z sd_zdobyte) odblokowuje
+    // bonus w komendzie ekonomii przypisanej do tej postaci (patrz WIEZ_POSTACI
+    // w bot.js), a poziom 10 dodatkowo daje bonus startowy w samym RPS.
+    await bezpiecznie("tabela wiez_postaci", () => db.execute(`CREATE TABLE IF NOT EXISTS wiez_postaci (
+        user_id TEXT,
+        guild_id TEXT,
+        postac TEXT,
+        sd_zdobyte INTEGER DEFAULT 0,
+        PRIMARY KEY (user_id, guild_id, postac)
+    )`));
+
     await bezpiecznie("tabela skiny", () => db.execute(`CREATE TABLE IF NOT EXISTS skiny (
         plik TEXT PRIMARY KEY,
         nazwa TEXT NOT NULL,

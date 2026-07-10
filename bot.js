@@ -218,6 +218,14 @@ client.once("ready", async () => {
         ),
 
         new SlashCommandBuilder()
+        .setName("papier-kamień-nożyce")
+        .setDescription("Wyzwij innego gracza na pojedynek papier-kamień-nożyce o Solid Dice"),
+
+        new SlashCommandBuilder()
+        .setName("bond")
+        .setDescription("Sprawdź system więzi z postaciami - poziomy, bonusy i swój postęp"),
+
+        new SlashCommandBuilder()
         .setName("skiny")
         .setDescription("Kup skiny postaci za Solid Dice"),
 
@@ -731,16 +739,450 @@ async function policzGraczyZBonusem(guildId, typ) {
 }
 
 // Skraca bazowy cooldown, jeśli aktywny bonus gracza dotyczy tej konkretnej komendy
-// albo wszystkich komend ekonomii naraz (typ cooldown_wszystkie).
-function efektywnyCooldownMs(komenda, bazowyCooldownMs, aktywny) {
-    if (!aktywny) return bazowyCooldownMs;
-    const { typ, wartoscMs } = aktywny.bonus;
-    if (typ === "cooldown_wszystkie") return Math.max(0, bazowyCooldownMs - wartoscMs);
-    if (typ === "cooldown_lowienie" && komenda === "łowienie") return Math.max(0, bazowyCooldownMs - wartoscMs);
-    if (typ === "cooldown_wyscig" && komenda === "wyścig") return Math.max(0, bazowyCooldownMs - wartoscMs);
-    if (typ === "cooldown_automat" && komenda === "automat") return Math.max(0, bazowyCooldownMs - wartoscMs);
-    if (typ === "cooldown_mahjong" && komenda === "mahjong") return Math.max(0, bazowyCooldownMs - wartoscMs);
-    return bazowyCooldownMs;
+// albo wszystkich komend ekonomii naraz (typ cooldown_wszystkie). aktywnaWiez (opcjonalny
+// bonus więzi z postacią, patrz pobierzWiezBonus) dolicza się niezależnie od skina -
+// łączna redukcja ma jednak twardy dolny limit 10% bazowego cooldownu, żeby stackowanie
+// obu źródeł nigdy nie pozwoliło spamować komendy bez żadnego oczekiwania.
+function efektywnyCooldownMs(komenda, bazowyCooldownMs, aktywny, aktywnaWiez) {
+    let cooldown = bazowyCooldownMs;
+
+    if (aktywny) {
+        const { typ, wartoscMs } = aktywny.bonus;
+        if (typ === "cooldown_wszystkie") cooldown -= wartoscMs;
+        else if (typ === "cooldown_lowienie" && komenda === "łowienie") cooldown -= wartoscMs;
+        else if (typ === "cooldown_wyscig" && komenda === "wyścig") cooldown -= wartoscMs;
+        else if (typ === "cooldown_automat" && komenda === "automat") cooldown -= wartoscMs;
+        else if (typ === "cooldown_mahjong" && komenda === "mahjong") cooldown -= wartoscMs;
+    }
+
+    if (aktywnaWiez?.poziomCfg?.typ === "cooldown_minus") {
+        cooldown -= aktywnaWiez.poziomCfg.wartoscMs;
+    }
+
+    return Math.max(Math.round(bazowyCooldownMs * 0.1), cooldown);
+}
+
+// ===== System więzi z postaciami =====
+// Więź z postacią rośnie wyłącznie dzięki wygranym w /papier-kamień-nożyce
+// rozegranym tą postacią (sd_zdobyte = suma wygranych Solid Dice). Poziom więzi
+// (1-10) odblokowuje bonus w JEDNEJ, przypisanej na stałe komendzie ekonomii -
+// zawsze liczy się tylko bonus aktualnego (najwyższego osiągniętego) poziomu,
+// bez sumowania niższych. Poziom 10 jest dla każdej postaci taki sam: dodatkowy
+// startowy punkt w samym /papier-kamień-nożyce.
+const WIEZ_PROGI = [20, 50, 75, 100, 150, 225, 300, 500, 750, 1000];
+
+const WIEZ_START_RPS = { typ: "rps_start", opis: "Zaczynasz rundę `/papier-kamień-nożyce` z 1 punktem." };
+
+const WIEZ_POSTACI = {
+    Nanally: {
+        komenda: "wyścig",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 1, opis: "+1 Solid Dice za wygraną w `/wyścig`." },
+            { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za wygraną w `/wyścig`." },
+            { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wygraną w `/wyścig`." },
+            { typ: "cooldown_minus", wartoscMs: 5 * 60 * 1000, opis: "Skraca cooldown `/wyścig` o 5 minut." },
+            { typ: "cooldown_minus", wartoscMs: 10 * 60 * 1000, opis: "Skraca cooldown `/wyścig` o 10 minut." },
+            { typ: "cooldown_minus", wartoscMs: 15 * 60 * 1000, opis: "Skraca cooldown `/wyścig` o 15 minut (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 10, opis: "+10 Solid Dice za wygraną w `/wyścig`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 20, opis: "10% szans na dodatkowe +20 Solid Dice za wygraną w `/wyścig`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 50, opis: "5% szans na dodatkowe +50 Solid Dice za wygraną w `/wyścig`." },
+            WIEZ_START_RPS,
+        ],
+    },
+    Hotori: {
+        komenda: "mahjong",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 1, opis: "+1 Solid Dice za dokończoną partię `/mahjong`." },
+            { typ: "extra_sd", wartosc: 2, opis: "+2 Solid Dice za dokończoną partię `/mahjong`." },
+            { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za dokończoną partię `/mahjong`." },
+            { typ: "cooldown_minus", wartoscMs: 10 * 60 * 1000, opis: "Skraca cooldown `/mahjong` o 10 minut." },
+            { typ: "cooldown_minus", wartoscMs: 20 * 60 * 1000, opis: "Skraca cooldown `/mahjong` o 20 minut." },
+            { typ: "cooldown_minus", wartoscMs: 30 * 60 * 1000, opis: "Skraca cooldown `/mahjong` o 30 minut (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 6, opis: "+6 Solid Dice za dokończoną partię `/mahjong`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za dokończoną partię `/mahjong`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 35, opis: "5% szans na dodatkowe +35 Solid Dice za dokończoną partię `/mahjong`." },
+            WIEZ_START_RPS,
+        ],
+    },
+    Lacrimosa: {
+        komenda: "automat",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 1, opis: "+1 Solid Dice za wygraną w `/automat`." },
+            { typ: "extra_sd", wartosc: 2, opis: "+2 Solid Dice za wygraną w `/automat`." },
+            { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za wygraną w `/automat`." },
+            { typ: "cooldown_minus", wartoscMs: 1 * 60 * 1000, opis: "Skraca cooldown `/automat` o 1 minutę." },
+            { typ: "cooldown_minus", wartoscMs: 2 * 60 * 1000, opis: "Skraca cooldown `/automat` o 2 minuty." },
+            { typ: "cooldown_minus", wartoscMs: 5 * 60 * 1000, opis: "Skraca cooldown `/automat` o 5 minut (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wygraną w `/automat`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za wygraną w `/automat`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 30, opis: "5% szans na dodatkowe +30 Solid Dice za wygraną w `/automat`." },
+            WIEZ_START_RPS,
+        ],
+    },
+    Chaos: {
+        komenda: "łowienie",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 1, opis: "+1 Solid Dice za wygraną w `/łowienie`." },
+            { typ: "extra_sd", wartosc: 2, opis: "+2 Solid Dice za wygraną w `/łowienie`." },
+            { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za wygraną w `/łowienie`." },
+            { typ: "cooldown_minus", wartoscMs: 1 * 60 * 1000, opis: "Skraca cooldown `/łowienie` o 1 minutę." },
+            { typ: "cooldown_minus", wartoscMs: 2 * 60 * 1000, opis: "Skraca cooldown `/łowienie` o 2 minuty." },
+            { typ: "cooldown_minus", wartoscMs: 5 * 60 * 1000, opis: "Skraca cooldown `/łowienie` o 5 minut (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wygraną w `/łowienie`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za wygraną w `/łowienie`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 30, opis: "5% szans na dodatkowe +30 Solid Dice za wygraną w `/łowienie`." },
+            WIEZ_START_RPS,
+        ],
+    },
+    Sakiri: {
+        komenda: "daily",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 2, opis: "+2 Solid Dice za odebrane `/daily`." },
+            { typ: "extra_sd", wartosc: 4, opis: "+4 Solid Dice za odebrane `/daily`." },
+            { typ: "extra_sd", wartosc: 6, opis: "+6 Solid Dice za odebrane `/daily`." },
+            { typ: "cooldown_minus", wartoscMs: 2 * 60 * 60 * 1000, opis: "Skraca cooldown `/daily` o 2 godziny." },
+            { typ: "cooldown_minus", wartoscMs: 4 * 60 * 60 * 1000, opis: "Skraca cooldown `/daily` o 4 godziny." },
+            { typ: "cooldown_minus", wartoscMs: 12 * 60 * 60 * 1000, opis: "Skraca cooldown `/daily` o 12 godzin (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 8, opis: "+8 Solid Dice za odebrane `/daily`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 20, opis: "10% szans na dodatkowe +20 Solid Dice za `/daily`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 40, opis: "5% szans na dodatkowe +40 Solid Dice za `/daily`." },
+            WIEZ_START_RPS,
+        ],
+    },
+    Chiz: {
+        komenda: "work",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 1, opis: "+1 Solid Dice za wykonaną `/work`." },
+            { typ: "extra_sd", wartosc: 2, opis: "+2 Solid Dice za wykonaną `/work`." },
+            { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za wykonaną `/work`." },
+            { typ: "cooldown_minus", wartoscMs: 1 * 60 * 1000, opis: "Skraca cooldown `/work` o 1 minutę." },
+            { typ: "cooldown_minus", wartoscMs: 2 * 60 * 1000, opis: "Skraca cooldown `/work` o 2 minuty." },
+            { typ: "cooldown_minus", wartoscMs: 5 * 60 * 1000, opis: "Skraca cooldown `/work` o 5 minut (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wykonaną `/work`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za `/work`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 30, opis: "5% szans na dodatkowe +30 Solid Dice za `/work`." },
+            WIEZ_START_RPS,
+        ],
+    },
+    Fadia: {
+        komenda: "pinkpawsheist",
+        poziomy: [
+            { typ: "extra_sd", wartosc: 3, opis: "+3 Solid Dice za sukces w `/pinkpawsheist`." },
+            { typ: "extra_sd", wartosc: 6, opis: "+6 Solid Dice za sukces w `/pinkpawsheist`." },
+            { typ: "extra_sd", wartosc: 10, opis: "+10 Solid Dice za sukces w `/pinkpawsheist`." },
+            { typ: "cooldown_minus", wartoscMs: 4 * 60 * 60 * 1000, opis: "Skraca cooldown `/pinkpawsheist` o 4 godziny." },
+            { typ: "cooldown_minus", wartoscMs: 8 * 60 * 60 * 1000, opis: "Skraca cooldown `/pinkpawsheist` o 8 godzin." },
+            { typ: "cooldown_minus", wartoscMs: 24 * 60 * 60 * 1000, opis: "Skraca cooldown `/pinkpawsheist` o 24 godziny (maks. -50%)." },
+            { typ: "extra_sd", wartosc: 15, opis: "+15 Solid Dice za sukces w `/pinkpawsheist`." },
+            { typ: "szansa_extra", szansa: 0.10, wartosc: 25, opis: "10% szans na dodatkowe +25 Solid Dice za sukces w `/pinkpawsheist`." },
+            { typ: "szansa_extra", szansa: 0.05, wartosc: 60, opis: "5% szans na dodatkowe +60 Solid Dice za sukces w `/pinkpawsheist`." },
+            WIEZ_START_RPS,
+        ],
+    },
+};
+
+// Odwrotna mapa komenda -> postać, do szybkiego wyszukania po stronie komend ekonomii.
+const WIEZ_KOMENDA_DO_POSTACI = Object.fromEntries(
+    Object.entries(WIEZ_POSTACI).map(([postac, cfg]) => [cfg.komenda, postac])
+);
+
+function poziomWiezi(sdZdobyte) {
+    let poziom = 0;
+    for (let i = 0; i < WIEZ_PROGI.length; i++) {
+        if (sdZdobyte >= WIEZ_PROGI[i]) poziom = i + 1;
+    }
+    return poziom;
+}
+
+async function pobierzWiezSd(userId, guildId, postac) {
+    const wynik = await db.execute({
+        sql: "SELECT sd_zdobyte FROM wiez_postaci WHERE user_id = ? AND guild_id = ? AND postac = ?",
+        args: [userId, guildId, postac],
+    });
+    return wynik.rows[0]?.sd_zdobyte ? Number(wynik.rows[0].sd_zdobyte) : 0;
+}
+
+// Bonus więzi aktywny w danej komendzie ekonomii - wymaga posiadania przypisanej
+// postaci (z /roll, w /plecak) i co najmniej poziomu 1. Niezależne od bonusu skina.
+async function pobierzWiezBonus(userId, guildId, komenda) {
+    const postac = WIEZ_KOMENDA_DO_POSTACI[komenda];
+    if (!postac) return null;
+
+    const posiada = await db.execute({
+        sql: "SELECT 1 FROM postacie WHERE user_id = ? AND guild_id = ? AND postac = ? AND ilosc > 0",
+        args: [userId, guildId, postac],
+    });
+    if (posiada.rows.length === 0) return null;
+
+    const sd = await pobierzWiezSd(userId, guildId, postac);
+    const poziom = poziomWiezi(sd);
+    if (poziom === 0) return null;
+
+    return { postac, poziom, sd, poziomCfg: WIEZ_POSTACI[postac].poziomy[poziom - 1] };
+}
+
+// Dolicza bonus więzi (extra_sd / szansa_extra) do już przyznanej nagrody -
+// niezależnie od ewentualnego bonusu skina, więc oba mogą zadziałać jednocześnie.
+async function dodajBonusWiezi(userId, guildId, komenda) {
+    const wiez = await pobierzWiezBonus(userId, guildId, komenda);
+    if (!wiez) return { bonusTekst: null };
+    const cfg = wiez.poziomCfg;
+
+    if (cfg.typ === "extra_sd") {
+        await addSolidDice(userId, guildId, cfg.wartosc);
+        return { bonusTekst: `+${cfg.wartosc} Solid Dice <:Red_roll:1512521789748547715> (więź z **${wiez.postac}**, poziom ${wiez.poziom})` };
+    }
+    if (cfg.typ === "szansa_extra" && Math.random() < cfg.szansa) {
+        await addSolidDice(userId, guildId, cfg.wartosc);
+        return { bonusTekst: `+${cfg.wartosc} Solid Dice <:Red_roll:1512521789748547715> (więź z **${wiez.postac}**, poziom ${wiez.poziom})` };
+    }
+    return { bonusTekst: null };
+}
+
+// Dodaje Solid Dice wygrane w /papier-kamień-nożyce do licznika więzi danej postaci.
+async function dodajSdDoWiezi(userId, guildId, postac, ilosc) {
+    if (!WIEZ_POSTACI[postac] || ilosc <= 0) return;
+    await db.execute({
+        sql: `INSERT INTO wiez_postaci (user_id, guild_id, postac, sd_zdobyte) VALUES (?, ?, ?, ?)
+              ON CONFLICT(user_id, guild_id, postac) DO UPDATE SET sd_zdobyte = sd_zdobyte + ?`,
+        args: [userId, guildId, postac, ilosc, ilosc],
+    });
+}
+
+// Emotki postaci - używane w /papier-kamień-nożyce i /bond. Brak własnej emotki
+// dla Chaos w dostarczonym zestawie, stąd generyczna 🌀 jako zastępstwo.
+const WIEZ_EMOJI = {
+    Nanally: "<:Nanally:1509077750399500439>",
+    Hotori: "<:AngryHotori:1497676553029685440>",
+    Lacrimosa: "<:Lacrimosa:1514312694872805537>",
+    Chaos: "🌀",
+    Sakiri: "<:Sakiri:1497676635611201718>",
+    Chiz: "<:chiz_scared:1497298090825089065>",
+    Fadia: "<:Fadia:1497675274807148657>",
+};
+
+async function pobierzPostacieGracza(userId, guildId) {
+    const wynik = await db.execute({
+        sql: "SELECT postac FROM postacie WHERE user_id = ? AND guild_id = ? AND ilosc > 0 ORDER BY postac",
+        args: [userId, guildId],
+    });
+    return wynik.rows.map((r) => r.postac);
+}
+
+// ===== /papier-kamień-nożyce =====
+const RPS_COOLDOWN_MS = 15 * 60 * 1000;
+const RPS_MAX_RUND = 15;
+
+const RPS_WYBORY = {
+    papier: { emoji: "📄", bije: "kamień" },
+    "kamień": { emoji: "🪨", bije: "nożyce" },
+    "nożyce": { emoji: "✂️", bije: "papier" },
+};
+
+function rozstrzygnijRundeRPS(a, b) {
+    if (a === b) return "remis";
+    return RPS_WYBORY[a].bije === b ? "a" : "b";
+}
+
+// Faza wyboru postaci - obaj gracze widzą jedną wiadomość z dwoma osobnymi
+// menu (każde ograniczone do właściwego gracza customId-em).
+async function rozpocznijPojedynekRPS(guildId, p1, p2, stawka, wiadomosc) {
+    const postacieP1 = await pobierzPostacieGracza(p1.id, guildId);
+    const postacieP2 = await pobierzPostacieGracza(p2.id, guildId);
+
+    if (postacieP1.length === 0 || postacieP2.length === 0) {
+        const brakujacy = postacieP1.length === 0 ? p1 : p2;
+        await wiadomosc.edit({ content: `❗ ${brakujacy} nie posiada żadnej postaci w \`/plecak\` - potrzebna do gry. Pojedynek anulowany.`, embeds: [], components: [] }).catch(() => {});
+        return;
+    }
+
+    const embedWybor = new EmbedBuilder()
+        .setColor(0xE91E63)
+        .setTitle("🎮 Wybierzcie postacie do pojedynku")
+        .setDescription(`${p1} i ${p2} - wybierzcie postać, którą zagracie w tym pojedynku (macie 60 sekund).`);
+
+    const menuP1 = new StringSelectMenuBuilder()
+        .setCustomId(`rps_postac_${p1.id}`)
+        .setPlaceholder(`Postać dla ${p1.username}`)
+        .addOptions(postacieP1.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: WIEZ_EMOJI[p] } : { label: p, value: p })));
+
+    const menuP2 = new StringSelectMenuBuilder()
+        .setCustomId(`rps_postac_${p2.id}`)
+        .setPlaceholder(`Postać dla ${p2.username}`)
+        .addOptions(postacieP2.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: WIEZ_EMOJI[p] } : { label: p, value: p })));
+
+    const wiadomoscWyboru = await wiadomosc.edit({
+        content: null,
+        embeds: [embedWybor],
+        components: [new ActionRowBuilder().addComponents(menuP1), new ActionRowBuilder().addComponents(menuP2)],
+    });
+
+    const wybory = {};
+    await new Promise((resolve) => {
+        const collectorWyboru = wiadomoscWyboru.createMessageComponentCollector({
+            filter: (i) => (i.user.id === p1.id || i.user.id === p2.id) && i.customId.startsWith("rps_postac_"),
+            time: 60000,
+        });
+
+        collectorWyboru.on("collect", async (i) => {
+            try {
+                if (i.customId !== `rps_postac_${i.user.id}`) {
+                    await i.reply({ content: "❗ To nie Twój wybór.", ephemeral: true });
+                    return;
+                }
+                wybory[i.user.id] = i.values[0];
+                await i.reply({ content: `✅ Wybrano postać: **${i.values[0]}**`, ephemeral: true });
+                if (wybory[p1.id] && wybory[p2.id]) collectorWyboru.stop("wybrano");
+            } catch (error) {
+                console.error("Błąd wyboru postaci RPS:", error);
+            }
+        });
+
+        collectorWyboru.on("end", () => resolve());
+    });
+
+    if (!wybory[p1.id] || !wybory[p2.id]) {
+        const brakujacy = !wybory[p1.id] ? p1 : p2;
+        await wiadomosc.edit({ content: `⌛ ${brakujacy} nie wybrał postaci na czas. Pojedynek anulowany.`, embeds: [], components: [] }).catch(() => {});
+        return;
+    }
+
+    await rozegrajRundyRPS(wiadomosc, p1, p2, wybory[p1.id], wybory[p2.id], stawka, guildId);
+}
+
+// Rundy pojedynku - do 3 wygranych (remisy w rundzie nie liczą się i są powtarzane).
+// Brak wyboru w 10s liczy się jako przegrana tej rundy (albo remis rundy, jeśli
+// obaj nie zdążyli). RPS_MAX_RUND to zabezpieczenie przed nieskończoną grą, gdyby
+// obaj gracze notorycznie nie wybierali - wtedy cały mecz kończy się remisem.
+async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, guildId) {
+    let wygraneP1 = 0;
+    let wygraneP2 = 0;
+
+    const wiezP1 = WIEZ_POSTACI[postacP1] ? await pobierzWiezBonus(p1.id, guildId, WIEZ_POSTACI[postacP1].komenda) : null;
+    if (wiezP1?.poziom === 10) wygraneP1 = 1;
+    const wiezP2 = WIEZ_POSTACI[postacP2] ? await pobierzWiezBonus(p2.id, guildId, WIEZ_POSTACI[postacP2].komenda) : null;
+    if (wiezP2?.poziom === 10) wygraneP2 = 1;
+
+    const startBonusTekst = [
+        wygraneP1 > 0 ? `${p1.username} zaczyna z 1 punktem (więź 10. poziomu z **${postacP1}**)!` : null,
+        wygraneP2 > 0 ? `${p2.username} zaczyna z 1 punktem (więź 10. poziomu z **${postacP2}**)!` : null,
+    ].filter(Boolean).join("\n");
+
+    let runda = 1;
+    while (wygraneP1 < 3 && wygraneP2 < 3 && runda <= RPS_MAX_RUND) {
+        const naglowek = `${WIEZ_EMOJI[postacP1] || ""} **${p1.username}** (${postacP1}) vs ${WIEZ_EMOJI[postacP2] || ""} **${p2.username}** (${postacP2})\n\nWynik: **${wygraneP1} - ${wygraneP2}** (do 3 wygranych)`;
+
+        const embedRundy = new EmbedBuilder()
+            .setColor(0xE91E63)
+            .setTitle(`🎮 Runda ${runda} - Papier-Kamień-Nożyce`)
+            .setDescription(`${naglowek}\n\nMacie 10 sekund na wybór!${runda === 1 && startBonusTekst ? `\n\n${startBonusTekst}` : ""}`);
+
+        const przyciski = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId("rps_papier").setLabel("Papier").setEmoji("📄").setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId("rps_kamień").setLabel("Kamień").setEmoji("🪨").setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId("rps_nożyce").setLabel("Nożyce").setEmoji("✂️").setStyle(ButtonStyle.Primary),
+        );
+
+        const wiadomoscRundy = await wiadomosc.edit({ content: null, embeds: [embedRundy], components: [przyciski] });
+
+        const wybory = {};
+        await new Promise((resolve) => {
+            const collectorRundy = wiadomoscRundy.createMessageComponentCollector({
+                filter: (i) => i.user.id === p1.id || i.user.id === p2.id,
+                time: 10000,
+            });
+
+            collectorRundy.on("collect", async (i) => {
+                try {
+                    if (wybory[i.user.id]) {
+                        await i.reply({ content: "❗ Już wybrałeś/aś w tej rundzie.", ephemeral: true });
+                        return;
+                    }
+                    const wybor = i.customId.replace("rps_", "");
+                    wybory[i.user.id] = wybor;
+                    await i.reply({ content: `✅ Zagrałeś/aś: **${wybor}**`, ephemeral: true });
+                    if (wybory[p1.id] && wybory[p2.id]) collectorRundy.stop("obaj_wybrali");
+                } catch (error) {
+                    console.error("Błąd rundy RPS:", error);
+                }
+            });
+
+            collectorRundy.on("end", () => resolve());
+        });
+
+        const wyborP1 = wybory[p1.id] || null;
+        const wyborP2 = wybory[p2.id] || null;
+        let tekstWyniku;
+
+        if (!wyborP1 && !wyborP2) {
+            tekstWyniku = "⌛ Nikt nie zdążył wybrać - runda powtórzona bez punktu.";
+        } else if (!wyborP1) {
+            wygraneP2++;
+            tekstWyniku = `⌛ ${p1.username} nie zdążył/a wybrać - punkt dla ${p2.username}!`;
+        } else if (!wyborP2) {
+            wygraneP1++;
+            tekstWyniku = `⌛ ${p2.username} nie zdążył/a wybrać - punkt dla ${p1.username}!`;
+        } else {
+            const wynikRundy = rozstrzygnijRundeRPS(wyborP1, wyborP2);
+            const emojiP1 = RPS_WYBORY[wyborP1].emoji;
+            const emojiP2 = RPS_WYBORY[wyborP2].emoji;
+            if (wynikRundy === "remis") {
+                tekstWyniku = `${emojiP1} vs ${emojiP2} - remis! Runda powtórzona bez punktu.`;
+            } else if (wynikRundy === "a") {
+                wygraneP1++;
+                tekstWyniku = `${emojiP1} vs ${emojiP2} - **${wyborP1}** bije **${wyborP2}**! Punkt dla ${p1.username}.`;
+            } else {
+                wygraneP2++;
+                tekstWyniku = `${emojiP1} vs ${emojiP2} - **${wyborP2}** bije **${wyborP1}**! Punkt dla ${p2.username}.`;
+            }
+        }
+
+        const embedWynikuRundy = new EmbedBuilder()
+            .setColor(0xE91E63)
+            .setTitle(`🎮 Runda ${runda} - wynik`)
+            .setDescription(`${naglowek}\n\n${tekstWyniku}\n\nWynik po tej rundzie: **${wygraneP1} - ${wygraneP2}**`);
+
+        await wiadomosc.edit({ embeds: [embedWynikuRundy], components: [] }).catch(() => {});
+        await new Promise((r) => setTimeout(r, 2000));
+
+        runda++;
+    }
+
+    const zwyciezca = wygraneP1 >= 3 ? p1 : wygraneP2 >= 3 ? p2 : null;
+    const przegrany = zwyciezca === p1 ? p2 : zwyciezca === p2 ? p1 : null;
+    const postacZwyciezcy = zwyciezca === p1 ? postacP1 : postacP2;
+
+    if (!zwyciezca) {
+        await wiadomosc.edit({
+            embeds: [new EmbedBuilder().setColor(0x999999).setTitle("🤝 Remis!").setDescription(`Pojedynek zakończył się remisem ${wygraneP1} - ${wygraneP2}. Nikt nic nie traci ani zyskuje.`)],
+            components: [],
+        }).catch(() => {});
+        return;
+    }
+
+    const saldoPrzegranego = await getSolidDice(przegrany.id, guildId);
+    const realnaStawka = Math.min(stawka, saldoPrzegranego);
+
+    await addSolidDice(zwyciezca.id, guildId, realnaStawka);
+    if (realnaStawka > 0) {
+        await db.execute({
+            sql: "UPDATE ekonomia SET solid_dice = solid_dice - ? WHERE user_id = ? AND guild_id = ?",
+            args: [realnaStawka, przegrany.id, guildId],
+        });
+    }
+    await dodajSdDoWiezi(zwyciezca.id, guildId, postacZwyciezcy, realnaStawka);
+
+    const embedKoniec = new EmbedBuilder()
+        .setColor(0x2ECC71)
+        .setTitle("🏆 Koniec pojedynku!")
+        .setDescription(
+            `**${zwyciezca.username}** wygrywa ${wygraneP1} - ${wygraneP2} grając **${postacZwyciezcy}**!\n\n` +
+            `+${realnaStawka} Solid Dice <:Red_roll:1512521789748547715> dla ${zwyciezca}\n` +
+            `-${realnaStawka} Solid Dice <:Red_roll:1512521789748547715> dla ${przegrany}` +
+            (realnaStawka < stawka ? `\n\n(${przegrany.username} nie miał wystarczająco Solid Dice - strata ograniczona do posiadanych środków)` : "")
+        );
+
+    await wiadomosc.edit({ embeds: [embedKoniec], components: [] }).catch(() => {});
 }
 
 // Dolicza bonus "reward_prog_extra" albo "podwojenie_nagrody" do już przyznanej
@@ -1985,7 +2427,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "profil", "wymiana", "animacje", "pingcooldown"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "profil", "wymiana", "animacje", "pingcooldown", "papier-kamień-nożyce", "bond"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -1999,13 +2441,15 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-        const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", efektywnyCooldownMs("daily", KOMENDY_COOLDOWN_MS.daily, aktywnyBonus));
+        const aktywnaWiez = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "daily");
+        const cooldown = await checkcooldown(interaction.user.id , interaction.guild.id, "daily", efektywnyCooldownMs("daily", KOMENDY_COOLDOWN_MS.daily, aktywnyBonus, aktywnaWiez));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
         }
         const ilosc = Math.floor(Math.random() * 5) + 10;
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
+        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "daily");
 
         const wiadomosci = [
             "Wykonałeś/aś codzienne misje",
@@ -2021,7 +2465,7 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0x00FF00)
             .setTitle("<:Red_roll:1512521789748547715> Daily")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}`})
+            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.editReply({ embeds: [embed], files: [obrazek]});
@@ -2342,7 +2786,8 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", efektywnyCooldownMs("work", KOMENDY_COOLDOWN_MS.work, aktywnyBonus));
+        const aktywnaWiez = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "work");
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "work", efektywnyCooldownMs("work", KOMENDY_COOLDOWN_MS.work, aktywnyBonus, aktywnaWiez));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -2350,6 +2795,7 @@ client.on("interactionCreate", async (interaction) => {
 
         const ilosc = Math.floor(Math.random() * 5) + 5;
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
+        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "work");
 
         let bonusNadgodzin = 0;
         if (aktywnyBonus?.bonus.typ === "work_szansa_extra" && Math.random() < aktywnyBonus.bonus.szansa) {
@@ -2383,7 +2829,7 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0x00FF00)
             .setTitle("<:Red_roll:1512521789748547715> Work")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNadgodzin > 0 ? `\n+${bonusNadgodzin} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - Nadgodziny!)` : ""}`})
+            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNadgodzin > 0 ? `\n+${bonusNadgodzin} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - Nadgodziny!)` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.editReply({ embeds: [embed], files: [obrazek] });
@@ -2419,7 +2865,8 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", efektywnyCooldownMs("wyścig", KOMENDY_COOLDOWN_MS["wyścig"], aktywnyBonus));
+        const aktywnaWiez = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "wyścig");
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "wyścig", efektywnyCooldownMs("wyścig", KOMENDY_COOLDOWN_MS["wyścig"], aktywnyBonus, aktywnaWiez));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -2520,6 +2967,7 @@ client.on("interactionCreate", async (interaction) => {
         } else {
             const nagrodaWyscigu = losowaLiczba(5, 15);
             const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaWyscigu, aktywnyBonus);
+            const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "wyścig");
 
             let bonusChizTekst = "";
             if (aktywnyBonus?.bonus.typ === "wyscig_extra_sd") {
@@ -2528,7 +2976,7 @@ client.on("interactionCreate", async (interaction) => {
             }
 
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}`,
+                content: naglowekWyscigu + rysujPlansze() + `\n\n🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
@@ -2538,12 +2986,13 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const aktywnyBonusStartera = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", efektywnyCooldownMs("mahjong", KOMENDY_COOLDOWN_MS.mahjong, aktywnyBonusStartera));
+        const aktywnaWiezStartera = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "mahjong");
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "mahjong", efektywnyCooldownMs("mahjong", KOMENDY_COOLDOWN_MS.mahjong, aktywnyBonusStartera, aktywnaWiezStartera));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
         }
-        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba, pobierzAktywnySkinIBonus, dodajBonusDoNagrody });
+        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba, pobierzAktywnySkinIBonus, dodajBonusDoNagrody, dodajBonusWiezi });
         return;
     }
 
@@ -2551,7 +3000,8 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", efektywnyCooldownMs("łowienie", KOMENDY_COOLDOWN_MS["łowienie"], aktywnyBonus));
+        const aktywnaWiez = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "łowienie");
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "łowienie", efektywnyCooldownMs("łowienie", KOMENDY_COOLDOWN_MS["łowienie"], aktywnyBonus, aktywnaWiez));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -2610,6 +3060,7 @@ client.on("interactionCreate", async (interaction) => {
             if (wygrana) {
                 const nagrodaLowienia = losowaLiczba(1, 10);
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaLowienia, aktywnyBonus);
+                const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "łowienie");
 
                 let bonusSakiriTekst = "";
                 if (aktywnyBonus?.bonus.typ === "lowienie_extra_sd") {
@@ -2618,7 +3069,7 @@ client.on("interactionCreate", async (interaction) => {
                 }
 
                 await interaction.editReply({
-                    content: rysujJezioro() + `\n\n🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}`,
+                    content: rysujJezioro() + `\n\n🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             } else {
@@ -2678,7 +3129,8 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.deferReply();
 
         const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "automat", efektywnyCooldownMs("automat", KOMENDY_COOLDOWN_MS.automat, aktywnyBonus));
+        const aktywnaWiez = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "automat");
+        const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "automat", efektywnyCooldownMs("automat", KOMENDY_COOLDOWN_MS.automat, aktywnyBonus, aktywnaWiez));
         if (cooldown) {
             await interaction.editReply({ content: cooldown });
             return;
@@ -2739,8 +3191,9 @@ client.on("interactionCreate", async (interaction) => {
                 zlapane = true;
                 const nagrodaAutomatu = losowaLiczba(1, 10);
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaAutomatu, aktywnyBonus);
+                const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "automat");
                 await interaction.editReply({
-                    content: rysujAutomat() + `\n\n🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}`,
+                    content: rysujAutomat() + `\n\n🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                     components: [przyciskiAutomatu(true)],
                 }).catch(() => {});
             } else {
@@ -3184,6 +3637,169 @@ if (interaction.commandName === "profil") {
     });
 }
 
+if (interaction.commandName === "papier-kamień-nożyce") {
+    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "papier-kamień-nożyce", RPS_COOLDOWN_MS);
+    if (cooldown) {
+        await interaction.reply({ content: cooldown, ephemeral: true });
+        return;
+    }
+
+    const modal = new ModalBuilder()
+        .setCustomId("rps_stawka_modal")
+        .setTitle("Papier-Kamień-Nożyce - stawka")
+        .addComponents(
+            new ActionRowBuilder().addComponents(
+                new TextInputBuilder()
+                    .setCustomId("stawka")
+                    .setLabel("Ile Solid Dice postawić na pojedynek?")
+                    .setStyle(TextInputStyle.Short)
+                    .setRequired(true)
+            )
+        );
+    await interaction.showModal(modal);
+
+    const submitted = await interaction.awaitModalSubmit({ time: 60000, filter: (m) => m.user.id === interaction.user.id }).catch(() => null);
+    if (!submitted) return;
+
+    const stawka = parseInt(submitted.fields.getTextInputValue("stawka").trim(), 10);
+    if (!Number.isInteger(stawka) || stawka <= 0) {
+        await submitted.reply({ content: "❗ Podaj poprawną, dodatnią liczbę Solid Dice.", ephemeral: true });
+        return;
+    }
+
+    const saldoInicjatora = await getSolidDice(interaction.user.id, interaction.guild.id);
+    if (saldoInicjatora < stawka) {
+        await submitted.reply({ content: `❗ Nie masz aż **${stawka}** Solid Dice (masz ${saldoInicjatora}).`, ephemeral: true });
+        return;
+    }
+
+    await submitted.deferReply();
+
+    const embedLobby = new EmbedBuilder()
+        .setColor(0xE91E63)
+        .setTitle("🎮 Papier-Kamień-Nożyce - pojedynek!")
+        .setDescription(`${interaction.user} wyzywa na pojedynek o **${stawka}** Solid Dice <:Red_roll:1512521789748547715>!\n\nKliknij **Dołącz**, żeby przyjąć wyzwanie (masz 60 sekund).`);
+
+    const btnDolacz = new ButtonBuilder().setCustomId("rps_dolacz").setLabel("🤝 Dołącz").setStyle(ButtonStyle.Success);
+    const wiadomoscLobby = await submitted.editReply({ embeds: [embedLobby], components: [new ActionRowBuilder().addComponents(btnDolacz)] });
+
+    let dolaczono = false;
+    const collectorLobby = wiadomoscLobby.createMessageComponentCollector({
+        filter: (i) => i.customId === "rps_dolacz",
+        time: 60000,
+    });
+
+    collectorLobby.on("collect", async (i) => {
+        try {
+            if (dolaczono) {
+                await i.reply({ content: "❗ Ktoś już dołączył do tego pojedynku.", ephemeral: true });
+                return;
+            }
+            if (i.user.id === interaction.user.id) {
+                await i.reply({ content: "❗ Nie możesz dołączyć do własnego wyzwania.", ephemeral: true });
+                return;
+            }
+            const saldoPrzeciwnika = await getSolidDice(i.user.id, i.guild.id);
+            if (saldoPrzeciwnika < stawka) {
+                await i.reply({ content: `❗ Nie masz aż **${stawka}** Solid Dice (masz ${saldoPrzeciwnika}).`, ephemeral: true });
+                return;
+            }
+
+            dolaczono = true;
+            collectorLobby.stop("dolaczono");
+            await i.deferUpdate();
+            await rozpocznijPojedynekRPS(interaction.guild.id, interaction.user, i.user, stawka, wiadomoscLobby);
+        } catch (error) {
+            console.error("Błąd dołączania do RPS:", error);
+        }
+    });
+
+    collectorLobby.on("end", (_collected, reason) => {
+        if (reason !== "dolaczono") {
+            wiadomoscLobby.edit({ embeds: [], content: "⌛ Nikt nie dołączył do pojedynku w wyznaczonym czasie.", components: [] }).catch(() => {});
+        }
+    });
+}
+
+if (interaction.commandName === "bond") {
+    await interaction.deferReply();
+
+    const embedInfo = new EmbedBuilder()
+        .setColor(0x9B59B6)
+        .setTitle("🔗 System więzi z postaciami")
+        .setDescription(
+            "Więź z postacią rośnie, grając nią w `/papier-kamień-nożyce` i **wygrywając** - liczy się suma Solid Dice zdobytych tą postacią w tej grze. " +
+            "Im wyższy poziom, tym mocniejszy bonus w komendzie ekonomii przypisanej do tej postaci. Poziom 10 dodatkowo daje 1 startowy punkt w samym `/papier-kamień-nożyce`."
+        );
+
+    for (const [postac, cfg] of Object.entries(WIEZ_POSTACI)) {
+        const opisPoziomow = cfg.poziomy
+            .map((p, idx) => `**Lv${idx + 1}** (${WIEZ_PROGI[idx]} SD): ${p.opis}`)
+            .join("\n");
+        embedInfo.addFields({
+            name: `${WIEZ_EMOJI[postac] || ""} ${postac} - bonus w \`/${cfg.komenda}\``,
+            value: opisPoziomow,
+        });
+    }
+
+    const postacieGracza = await pobierzPostacieGracza(interaction.user.id, interaction.guild.id);
+    const postacieZWiezia = postacieGracza.filter((p) => WIEZ_POSTACI[p]);
+
+    const komponenty = [];
+    if (postacieZWiezia.length > 0) {
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId("bond_wybor_postaci")
+            .setPlaceholder("Sprawdź swój postęp więzi z postacią")
+            .addOptions(postacieZWiezia.slice(0, 25).map((p) => ({ label: p, value: p, emoji: WIEZ_EMOJI[p] || undefined })));
+        komponenty.push(new ActionRowBuilder().addComponents(menu));
+    } else {
+        embedInfo.addFields({ name: "Twój postęp", value: "Nie posiadasz jeszcze żadnej postaci, która może zdobywać więź - sprawdź `/roll` i `/plecak`." });
+    }
+
+    const wiadomoscBond = await interaction.editReply({ embeds: [embedInfo], components: komponenty });
+    if (komponenty.length === 0) return;
+
+    const collectorBond = wiadomoscBond.createMessageComponentCollector({
+        filter: (i) => i.user.id === interaction.user.id && i.customId === "bond_wybor_postaci",
+        time: 120000,
+    });
+
+    collectorBond.on("collect", async (i) => {
+        try {
+            const postac = i.values[0];
+            const sd = await pobierzWiezSd(interaction.user.id, interaction.guild.id, postac);
+            const poziom = poziomWiezi(sd);
+            const progNastepny = WIEZ_PROGI[poziom] ?? null;
+            const progPoprzedni = poziom > 0 ? WIEZ_PROGI[poziom - 1] : 0;
+
+            let opisPostepu;
+            if (progNastepny === null) {
+                opisPostepu = `Poziom **10/10** (maksymalny) - ${sd} Solid Dice zdobyte tą postacią.`;
+            } else {
+                const dlugosc = 20;
+                const zakresPoziomu = progNastepny - progPoprzedni;
+                const procent = Math.min(1, Math.max(0, (sd - progPoprzedni) / zakresPoziomu));
+                const wypelnione = Math.round(procent * dlugosc);
+                const pasek = `\`[${"█".repeat(wypelnione)}${"░".repeat(dlugosc - wypelnione)}]\` **${Math.round(procent * 100)}%**`;
+                opisPostepu = `Poziom **${poziom}/10** - ${sd} Solid Dice zdobyte tą postacią.\n${pasek}\nBrakuje **${progNastepny - sd}** Solid Dice do poziomu ${poziom + 1}.`;
+            }
+
+            const embedPostep = new EmbedBuilder()
+                .setColor(0x9B59B6)
+                .setTitle(`${WIEZ_EMOJI[postac] || ""} Twoja więź z ${postac}`)
+                .setDescription(opisPostepu);
+
+            await i.reply({ embeds: [embedPostep], ephemeral: true });
+        } catch (error) {
+            console.error("Błąd sprawdzania więzi:", error);
+        }
+    });
+
+    collectorBond.on("end", () => {
+        wiadomoscBond.edit({ components: [] }).catch(() => {});
+    });
+}
+
 if (interaction.commandName === "skiny") {
     await interaction.deferReply();
 
@@ -3303,7 +3919,8 @@ if (interaction.commandName === "pinkpawsheist") {
     await interaction.deferReply();
 
     const aktywnyBonus = await pobierzAktywnySkinIBonus(interaction.user.id, interaction.guild.id);
-    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", efektywnyCooldownMs("pinkpawsheist", KOMENDY_COOLDOWN_MS.pinkpawsheist, aktywnyBonus));
+    const aktywnaWiez = await pobierzWiezBonus(interaction.user.id, interaction.guild.id, "pinkpawsheist");
+    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "pinkpawsheist", efektywnyCooldownMs("pinkpawsheist", KOMENDY_COOLDOWN_MS.pinkpawsheist, aktywnyBonus, aktywnaWiez));
     if (cooldown) {
         await interaction.editReply({ content: cooldown });
         return;
@@ -3314,6 +3931,7 @@ if (interaction.commandName === "pinkpawsheist") {
     if (wygrana) {
         const ilosc = Math.floor(Math.random() * 30) + 1;
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
+        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "pinkpawsheist");
 
         let bonusNanally3Tekst = "";
         if (aktywnyBonus?.bonus.typ === "pinkpawsheist_szansa_extra" && Math.random() < aktywnyBonus.bonus.szansa) {
@@ -3332,7 +3950,7 @@ if (interaction.commandName === "pinkpawsheist") {
             .setColor(0x00FF00)
             .setTitle("🐾 Pink Paws Heist - Sukces!")
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}` });
+            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}` });
 
         await interaction.editReply({ embeds: [embed] });
 
