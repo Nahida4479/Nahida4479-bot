@@ -65,6 +65,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/mahjong` | Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób | 1h |
 | `/papier-kamień-nożyce` | Wyzwij innego gracza na pojedynek o Solid Dice - do 3 wygranych rund | 15 min (dla wyzywającego) |
 | `/bond` | Sprawdź system więzi z postaciami - poziomy, bonusy i swój postęp | brak |
+| `/bonusy` | Zobacz swoje (albo czyjeś) aktualnie aktywne bonusy - z więzi i ze skina | brak |
 | `/skiny` | Kup skiny postaci w sklepie - ceny wahają się losowo co 2h, każdy z 18 skinów ma inny bonus | brak |
 | `/plecak` | Sprawdź swoje Solid Dice, postacie, skiny i miejsce w rankingu | brak |
 | `/profil` | Sprawdź swój profil (lub czyjś) i aktywuj bonus jednego z posiadanych skinów | brak |
@@ -116,7 +117,7 @@ Grając (i wygrywając) daną postacią w `/papier-kamień-nożyce`, buduje się
 | Fadia | `/work` |
 | Chiz | `/pinkpawsheist` |
 
-Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 jest wspólny dla wszystkich postaci - startowy punkt w `/papier-kamień-nożyce`. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`.
+Poziomy kumulują się - na poziomie N aktywne są bonusy wszystkich poziomów 1..N naraz, nie tylko najwyższego osiągniętego. Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 jest wspólny dla wszystkich postaci - startowy punkt w `/papier-kamień-nożyce`. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`, a wszystkie aktualnie aktywne bonusy (więź + skin) naraz w `/bonusy`.
 
 ---
 

@@ -226,6 +226,13 @@ client.once("ready", async () => {
         .setDescription("Sprawdź system więzi z postaciami - poziomy, bonusy i swój postęp"),
 
         new SlashCommandBuilder()
+        .setName("bonusy")
+        .setDescription("Sprawdź swoje aktywne bonusy - z więzi z postaciami i z wybranego skina")
+        .addUserOption((opt) =>
+            opt.setName("uzytkownik").setDescription("Gracz, którego bonusy chcesz sprawdzić").setRequired(false)
+        ),
+
+        new SlashCommandBuilder()
         .setName("skiny")
         .setDescription("Kup skiny postaci za Solid Dice"),
 
@@ -759,10 +766,15 @@ function efektywnyCooldownMs(komenda, bazowyCooldownMs, aktywny, aktywnaWiez) {
         else if (typ === "cooldown_mahjong" && komenda === "mahjong") cooldown -= wartoscMs;
     }
 
-    if (aktywnaWiez?.poziomCfg?.typ === "cooldown_minus") {
-        cooldown -= aktywnaWiez.poziomCfg.wartoscMs;
+    if (aktywnaWiez) {
+        for (const poziomCfg of aktywnaWiez.aktywnePoziomy) {
+            if (poziomCfg.typ === "cooldown_minus") cooldown -= poziomCfg.wartoscMs;
+        }
     }
 
+    // Dolna granica 10% bazowego cooldownu obowiązuje łącznie (skin + wszystkie
+    // aktywne poziomy więzi naraz) - inaczej wysoki poziom więzi mógłby całkiem
+    // wyzerować cooldown.
     return Math.max(Math.round(bazowyCooldownMs * 0.1), cooldown);
 }
 
@@ -908,6 +920,8 @@ async function pobierzWiezSd(userId, guildId, postac) {
 
 // Bonus więzi aktywny w danej komendzie ekonomii - wymaga posiadania przypisanej
 // postaci (z /roll, w /plecak) i co najmniej poziomu 1. Niezależne od bonusu skina.
+// Więź kumuluje się - na poziomie N aktywne są bonusy WSZYSTKICH poziomów
+// 1..N naraz, nie tylko najwyższego osiągniętego.
 async function pobierzWiezBonus(userId, guildId, komenda) {
     const postac = WIEZ_KOMENDA_DO_POSTACI[komenda];
     if (!postac) return null;
@@ -922,7 +936,7 @@ async function pobierzWiezBonus(userId, guildId, komenda) {
     const poziom = poziomWiezi(sd);
     if (poziom === 0) return null;
 
-    return { postac, poziom, sd, poziomCfg: WIEZ_POSTACI[postac].poziomy[poziom - 1] };
+    return { postac, poziom, sd, aktywnePoziomy: WIEZ_POSTACI[postac].poziomy.slice(0, poziom) };
 }
 
 // Dolicza bonus więzi (extra_sd / szansa_extra) do już przyznanej nagrody -
@@ -930,17 +944,18 @@ async function pobierzWiezBonus(userId, guildId, komenda) {
 async function dodajBonusWiezi(userId, guildId, komenda) {
     const wiez = await pobierzWiezBonus(userId, guildId, komenda);
     if (!wiez) return { bonusTekst: null };
-    const cfg = wiez.poziomCfg;
 
-    if (cfg.typ === "extra_sd") {
-        await addSolidDice(userId, guildId, cfg.wartosc);
-        return { bonusTekst: `+${cfg.wartosc} Solid Dice <:Red_roll:1512521789748547715> (więź z **${wiez.postac}**, poziom ${wiez.poziom})` };
+    // Wszystkie odblokowane poziomy sumują się naraz - flat extra_sd zawsze,
+    // a każdy szansa_extra losowany niezależnie (może "trafić" więcej niż jeden).
+    let suma = 0;
+    for (const cfg of wiez.aktywnePoziomy) {
+        if (cfg.typ === "extra_sd") suma += cfg.wartosc;
+        else if (cfg.typ === "szansa_extra" && Math.random() < cfg.szansa) suma += cfg.wartosc;
     }
-    if (cfg.typ === "szansa_extra" && Math.random() < cfg.szansa) {
-        await addSolidDice(userId, guildId, cfg.wartosc);
-        return { bonusTekst: `+${cfg.wartosc} Solid Dice <:Red_roll:1512521789748547715> (więź z **${wiez.postac}**, poziom ${wiez.poziom})` };
-    }
-    return { bonusTekst: null };
+    if (suma <= 0) return { bonusTekst: null };
+
+    await addSolidDice(userId, guildId, suma);
+    return { bonusTekst: `+${suma} Solid Dice <:Red_roll:1512521789748547715> (więź z **${wiez.postac}**, poziom ${wiez.poziom})` };
 }
 
 // Dodaje Solid Dice wygrane w /papier-kamień-nożyce do licznika więzi danej postaci.
@@ -2018,6 +2033,14 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
+        komenda: "🔗 /bonusy",
+        plik: "bonusy",
+        opis: "Zobacz swoje (albo czyjeś) aktualnie aktywne bonusy naraz: wszystkie odblokowane poziomy więzi dla każdej posiadanej postaci oraz aktywny bonus wybranego skina z /profil.",
+        zdobywasz: "Nie dotyczy - to tylko podgląd aktywnych bonusów",
+        tracisz: "Nie dotyczy",
+        cooldown: "Brak",
+    },
+    {
         komenda: "/skiny",
         plik: "skiny",
         opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy z 18 skinów ma swój własny, unikalny bonus, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
@@ -2488,7 +2511,7 @@ client.on("interactionCreate", async (interaction) => {
         args: [interaction.guild.id],
     });
 
-    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "profil", "wymiana", "animacje", "pingcooldown", "papier-kamień-nożyce", "bond"];
+    const komendyEkonomii = ["daily", "work", "skillissues", "pinkpawsheist", "kawiarnia", "delivery", "łowienie", "automat", "wyścig", "mahjong", "skiny", "roll", "plecak", "profil", "wymiana", "animacje", "pingcooldown", "papier-kamień-nożyce", "bond", "bonusy"];
 
     if (komendyEkonomii.includes(interaction.commandName)) {
         const kanal = ustawienia.rows[0]?.kanal_id;
@@ -3863,6 +3886,39 @@ if (interaction.commandName === "bond") {
     collectorBond.on("end", () => {
         wiadomoscBond.edit({ components: [] }).catch(() => {});
     });
+}
+
+if (interaction.commandName === "bonusy") {
+    await interaction.deferReply();
+    const uzytkownik = interaction.options.getUser("uzytkownik") || interaction.user;
+
+    const embed = new EmbedBuilder()
+        .setColor(0x9B59B6)
+        .setTitle(`🔗 Aktywne bonusy - ${uzytkownik.username}`)
+        .setDescription("**Aktywne bonusy z systemu bonda:**");
+
+    let maAktywnaWiez = false;
+    for (const [postac, cfg] of Object.entries(WIEZ_POSTACI)) {
+        const aktywna = await pobierzWiezBonus(uzytkownik.id, interaction.guild.id, cfg.komenda);
+        if (!aktywna) continue;
+        maAktywnaWiez = true;
+        const listaPoziomow = aktywna.aktywnePoziomy.map((p, idx) => `- LVL ${idx + 1}: ${p.opis}`).join("\n");
+        embed.addFields({ name: `${WIEZ_EMOJI[postac] || ""} ${postac}`, value: listaPoziomow });
+    }
+    if (!maAktywnaWiez) {
+        embed.addFields({ name: "Brak aktywnych bonusów z bonda", value: "Zagraj w `/papier-kamień-nożyce` i wygrywaj daną postacią, żeby zacząć budować jej więź." });
+    }
+
+    const aktywnySkin = await pobierzAktywnySkinIBonus(uzytkownik.id, interaction.guild.id);
+    const emotkaSkina = aktywnySkin ? (WIEZ_EMOJI[aktywnySkin.nazwa] || "") : "";
+    embed.addFields({
+        name: "Bonusy za posiadanie skina (/profil)",
+        value: aktywnySkin
+            ? `${emotkaSkina ? `${emotkaSkina}\n` : ""}**${aktywnySkin.bonus.nazwaBonusu}**: ${aktywnySkin.bonus.opis}`
+            : "Brak aktywnego bonusu - wybierz go w `/profil`.",
+    });
+
+    await interaction.editReply({ embeds: [embed] });
 }
 
 if (interaction.commandName === "skiny") {

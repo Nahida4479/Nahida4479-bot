@@ -62,6 +62,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/mahjong` | Play NTE Mahjong - solo with bots or multiplayer up to 4 players | 1h |
 | `/papier-kamień-nożyce` | Challenge another player to a rock-paper-scissors duel for Solid Dice - best of 3 rounds | 15 min (challenger only) |
 | `/bond` | Check the character bond system - levels, bonuses and your own progress | none |
+| `/bonusy` | See your (or someone else's) currently active bonuses - from bonds and from a skin | none |
 | `/skiny` | Buy character skins from the shop - prices fluctuate every 2h, each of the 18 skins has a different bonus | none |
 | `/plecak` | Check your Solid Dice, characters, skins and leaderboard rank | none |
 | `/profil` | Check your profile (or someone else's) and activate one owned skin's bonus | none |
@@ -113,7 +114,7 @@ Playing (and winning) with a given character in `/papier-kamień-nożyce` builds
 | Fadia | `/work` |
 | Chiz | `/pinkpawsheist` |
 
-Levels 1-9 grant growing bonuses specific to the assigned command (extra Solid Dice, shorter cooldown, a chance at a bonus reward), while level 10 is shared by every character - a starting point in `/papier-kamień-nożyce` itself. Check the full level list and your own progress in `/bond`.
+Levels stack - at level N, the bonuses of every level 1..N are active at once, not just the highest one reached. Levels 1-9 grant growing bonuses specific to the assigned command (extra Solid Dice, shorter cooldown, a chance at a bonus reward), while level 10 is shared by every character - a starting point in `/papier-kamień-nożyce` itself. Check the full level list and your own progress in `/bond`, and every currently active bonus (bond + skin) at once in `/bonusy`.
 
 ---
 
