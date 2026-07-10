@@ -399,6 +399,14 @@ const KOMENDY_COOLDOWN_MS = {
     mahjong: 60 * 60 * 1000,
 };
 
+async function ustawCooldownTeraz(userId, guildId, komenda) {
+    const teraz = Date.now();
+    await db.execute({
+        sql: "INSERT INTO cooldowny (user_id, guild_id, komenda, ostatnio, powiadomiono) VALUES (?, ?, ?, ?, 0) ON CONFLICT(user_id, guild_id, komenda) DO UPDATE SET ostatnio = ?, powiadomiono = 0",
+        args: [userId, guildId, komenda, teraz, teraz]
+    });
+}
+
 async function checkcooldown(userId, guildId, komenda, cooldownMs) {
     if (await czyMaBypassCooldown(userId, guildId)) return null;
 
@@ -419,11 +427,7 @@ async function checkcooldown(userId, guildId, komenda, cooldownMs) {
         }
     }
 
-    await db.execute({
-        sql: "INSERT INTO cooldowny (user_id, guild_id, komenda, ostatnio, powiadomiono) VALUES (?, ?, ?, ?, 0) ON CONFLICT(user_id, guild_id, komenda) DO UPDATE SET ostatnio = ?, powiadomiono = 0",
-        args: [userId, guildId, komenda, teraz, teraz]
-    });
-
+    await ustawCooldownTeraz(userId, guildId, komenda);
     return null;
 }
 
@@ -1058,6 +1062,10 @@ async function rozpocznijPojedynekRPS(guildId, p1, p2, stawka, wiadomosc) {
 // obaj nie zdążyli). RPS_MAX_RUND to zabezpieczenie przed nieskończoną grą, gdyby
 // obaj gracze notorycznie nie wybierali - wtedy cały mecz kończy się remisem.
 async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, guildId) {
+    // Dopiero teraz (runda faktycznie się zaczyna) zapisujemy cooldown wyzywającemu
+    // (p1) - jeśli nikt by nie dołączył, do tego miejsca kod by nie doszedł.
+    await ustawCooldownTeraz(p1.id, guildId, "papier-kamień-nożyce");
+
     let wygraneP1 = 0;
     let wygraneP2 = 0;
 
@@ -3691,9 +3699,13 @@ if (interaction.commandName === "profil") {
 }
 
 if (interaction.commandName === "papier-kamień-nożyce") {
-    const cooldown = await checkcooldown(interaction.user.id, interaction.guild.id, "papier-kamień-nożyce", RPS_COOLDOWN_MS);
-    if (cooldown) {
-        await interaction.reply({ content: cooldown, ephemeral: true });
+    // Odczyt bez ustawiania cooldownu - jeśli nikt nie dołączy do wyzwania, wyzywający
+    // nie powinien dostać cooldownu. Cooldown zapisuje się dopiero w rozegrajRundyRPS,
+    // gdy runda faktycznie się zacznie.
+    const bypassCooldownu = await czyMaBypassCooldown(interaction.user.id, interaction.guild.id);
+    const pozostalyCooldown = bypassCooldownu ? 0 : await pobierzPozostalyCooldown(interaction.user.id, interaction.guild.id, "papier-kamień-nożyce", RPS_COOLDOWN_MS);
+    if (pozostalyCooldown > 0) {
+        await interaction.reply({ content: `**❗Poczekaj jeszcze:** \`${formatCzas(pozostalyCooldown)}\``, ephemeral: true });
         return;
     }
 
