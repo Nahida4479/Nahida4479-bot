@@ -63,6 +63,8 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/automat` | Złap zabawkę w automacie zanim skończy się czas | 10 min |
 | `/roll` | Wylosuj 10 przedmiotów za 10 Solid Dice | brak |
 | `/mahjong` | Zagraj w Mahjonga NTE - solo z botami albo multiplayer do 4 osób | 1h |
+| `/papier-kamień-nożyce` | Wyzwij innego gracza na pojedynek o Solid Dice - do 3 wygranych rund | 15 min (dla wyzywającego) |
+| `/bond` | Sprawdź system więzi z postaciami - poziomy, bonusy i swój postęp | brak |
 | `/skiny` | Kup skiny postaci w sklepie - ceny wahają się losowo co 2h, każdy z 18 skinów ma inny bonus | brak |
 | `/plecak` | Sprawdź swoje Solid Dice, postacie, skiny i miejsce w rankingu | brak |
 | `/profil` | Sprawdź swój profil (lub czyjś) i aktywuj bonus jednego z posiadanych skinów | brak |
@@ -95,6 +97,26 @@ Mammon respi się sam z siebie co 12-24h (losowo) na kanale ustawionym w `/ntegr
 Każdy z 18 skinów w `/skiny` ma swój własny, unikalny bonus (np. krótszy cooldown konkretnej komendy, szansa na dodatkowe Solid Dice, wzmocnienie w walce z Mammonem) - nawet skiny tej samej postaci różnią się bonusem. Ceny skinów (1500-10000 Solid Dice, zależnie od siły bonusu) zmieniają się losowo o ±5-50% co 2 godziny, niezależnie dla każdego skina.
 
 Zakup skina nie aktywuje jego bonusu automatycznie - trzeba go wybrać w `/profil`. Można mieć aktywny tylko jeden bonus na raz.
+
+---
+
+## 🔗 Więź z postaciami i `/papier-kamień-nożyce`
+
+`/papier-kamień-nożyce` to pojedynek 1v1 o Solid Dice: osoba wyzywająca ustawia stawkę, drugi gracz dołącza, obaj wybierają postać ze swojego `/plecak`, a potem grają rundy (10 sekund na wybór) do 3 wygranych - zwycięzca zgarnia stawkę od przegranego.
+
+Grając (i wygrywając) daną postacią w `/papier-kamień-nożyce`, buduje się jej **więź** - 7 postaci ma przypisaną na stałe jedną komendę ekonomii, w której odblokowują kolejne bonusy wraz z poziomem więzi (1-10, liczonym z sumy Solid Dice zdobytych tą postacią w tej grze):
+
+| Postać | Komenda |
+|---|---|
+| Nanally | `/wyścig` |
+| Hotori | `/mahjong` |
+| Lacrimosa | `/automat` |
+| Chaos | `/łowienie` |
+| Sakiri | `/daily` |
+| Chiz | `/work` |
+| Fadia | `/pinkpawsheist` |
+
+Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 jest wspólny dla wszystkich postaci - startowy punkt w `/papier-kamień-nożyce`. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`.
 
 ---
 

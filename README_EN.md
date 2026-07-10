@@ -60,6 +60,8 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/automat` | Grab a toy in the claw machine before time runs out | 10 min |
 | `/roll` | Roll 10 items for 10 Solid Dice | none |
 | `/mahjong` | Play NTE Mahjong - solo with bots or multiplayer up to 4 players | 1h |
+| `/papier-kamień-nożyce` | Challenge another player to a rock-paper-scissors duel for Solid Dice - best of 3 rounds | 15 min (challenger only) |
+| `/bond` | Check the character bond system - levels, bonuses and your own progress | none |
 | `/skiny` | Buy character skins from the shop - prices fluctuate every 2h, each of the 18 skins has a different bonus | none |
 | `/plecak` | Check your Solid Dice, characters, skins and leaderboard rank | none |
 | `/profil` | Check your profile (or someone else's) and activate one owned skin's bonus | none |
@@ -92,6 +94,26 @@ Mammon spawns on its own every 12-24h (random) in the channel set via `/ntegra` 
 Each of the 18 skins in `/skiny` has its own unique bonus attached (e.g. a shorter cooldown on a specific command, a chance at extra Solid Dice, a boost while fighting Mammon) - even skins of the same character differ in their bonus. Skin prices (1500-10000 Solid Dice, depending on bonus strength) fluctuate randomly by ±5-50% every 2 hours, independently per skin.
 
 Buying a skin doesn't activate its bonus automatically - it has to be selected in `/profil`. Only one bonus can be active at a time.
+
+---
+
+## 🔗 Character bonds and `/papier-kamień-nożyce`
+
+`/papier-kamień-nożyce` is a 1v1 duel for Solid Dice: the challenger sets a stake, a second player joins, both pick a character from their `/plecak`, then play rounds (10 seconds to choose) up to 3 wins - the winner takes the stake from the loser.
+
+Playing (and winning) with a given character in `/papier-kamień-nożyce` builds that character's **bond** - 7 characters are each permanently tied to one economy command, unlocking increasing bonuses for it as their bond level (1-10, based on total Solid Dice won with that character in this game) rises:
+
+| Character | Command |
+|---|---|
+| Nanally | `/wyścig` |
+| Hotori | `/mahjong` |
+| Lacrimosa | `/automat` |
+| Chaos | `/łowienie` |
+| Sakiri | `/daily` |
+| Chiz | `/work` |
+| Fadia | `/pinkpawsheist` |
+
+Levels 1-9 grant growing bonuses specific to the assigned command (extra Solid Dice, shorter cooldown, a chance at a bonus reward), while level 10 is shared by every character - a starting point in `/papier-kamień-nożyce` itself. Check the full level list and your own progress in `/bond`.
 
 ---
 
