@@ -1140,9 +1140,7 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
             const emojiP1 = RPS_WYBORY[wyborP1].emoji;
             const emojiP2 = RPS_WYBORY[wyborP2].emoji;
             if (wynikRundy === "remis") {
-                wygraneP1++;
-                wygraneP2++;
-                tekstWyniku = `${emojiP1} vs ${emojiP2} - remis! Punkt dla obu.`;
+                tekstWyniku = `${emojiP1} vs ${emojiP2} - ten sam wybór, remis rundy! Runda powtórzona bez punktu.`;
             } else if (wynikRundy === "a") {
                 wygraneP1++;
                 tekstWyniku = `${emojiP1} vs ${emojiP2} - **${wyborP1}** bije **${wyborP2}**! Punkt dla ${p1.username}.`;
