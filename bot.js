@@ -1193,7 +1193,7 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
 
     const embedKoniec = new EmbedBuilder()
         .setColor(0x2ECC71)
-        .setTitle(`${EMOJI_NAGRODA} 🏆 Koniec pojedynku!`)
+        .setTitle(`${EMOJI_NAGRODA} Koniec pojedynku!`)
         .setDescription(
             `**${zwyciezca.username}** wygrywa ${wygraneP1} - ${wygraneP2} grając **${postacZwyciezcy}**!\n\n` +
             `+${realnaStawka} Solid Dice <:Red_roll:1512521789748547715> dla ${zwyciezca}\n` +
@@ -3011,7 +3011,7 @@ client.on("interactionCreate", async (interaction) => {
             }
 
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + `\n\n${EMOJI_NAGRODA} 🏆 **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                content: naglowekWyscigu + rysujPlansze() + `\n\n${EMOJI_NAGRODA} **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
@@ -3104,7 +3104,7 @@ client.on("interactionCreate", async (interaction) => {
                 }
 
                 await interaction.editReply({
-                    content: rysujJezioro() + `\n\n${EMOJI_NAGRODA} 🏆 **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                    content: rysujJezioro() + `\n\n${EMOJI_NAGRODA} **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             } else {
@@ -3228,7 +3228,7 @@ client.on("interactionCreate", async (interaction) => {
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaAutomatu, aktywnyBonus);
                 const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "automat");
                 await interaction.editReply({
-                    content: rysujAutomat() + `\n\n${EMOJI_NAGRODA} 🏆 **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                    content: rysujAutomat() + `\n\n${EMOJI_NAGRODA} **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
                     components: [przyciskiAutomatu(true)],
                 }).catch(() => {});
             } else {
@@ -3983,7 +3983,7 @@ if (interaction.commandName === "pinkpawsheist") {
 
         const embed = new EmbedBuilder()
             .setColor(0x00FF00)
-            .setTitle(`${EMOJI_NAGRODA} 🐾 Pink Paws Heist - Sukces!`)
+            .setTitle(`${EMOJI_NAGRODA} Pink Paws Heist - Sukces!`)
             .setDescription(wiadomosc)
             .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}` });
 
