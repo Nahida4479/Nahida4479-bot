@@ -2017,7 +2017,7 @@ const HELP_STRONY = [
         cooldown: "1 godzina (dla osoby zakładającej grę)",
     },
     {
-        komenda: "🎮 /papier-kamień-nożyce",
+        komenda: "<:PSYCHE:1497268261648076910> /papier-kamień-nożyce",
         plik: "papier-kamień-nożyce",
         opis: "Wyzwij innego gracza na pojedynek Papier-Kamień-Nożyce o Solid Dice - ustawiasz stawkę, przeciwnik dołącza, obaj wybieracie postać z /plecak i gracie do 3 wygranych rund (10 sekund na wybór, remisy w rundzie się powtarzają).",
         zdobywasz: "Stawka pojedynku od przeciwnika (wygrana)",
@@ -2033,7 +2033,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "🔗 /bonusy",
+        komenda: "<:NanallyFire:1307500616620183632> /bonusy",
         plik: "bonusy",
         opis: "Zobacz swoje (albo czyjeś) aktualnie aktywne bonusy naraz: wszystkie odblokowane poziomy więzi dla każdej posiadanej postaci oraz aktywny bonus wybranego skina z /profil.",
         zdobywasz: "Nie dotyczy - to tylko podgląd aktywnych bonusów",
@@ -2073,7 +2073,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "<:ANIMA:1497268057213505556> /animacje",
+        komenda: "<:NanallyUnoReverse:1307711421508751420> /animacje",
         plik: "animacje",
         opis: "Włącz lub wyłącz animację pokazywaną przy /roll.",
         zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
@@ -2089,7 +2089,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "😈 Event: Mammon",
+        komenda: "<:Exe:1521538634983936010> Event: Mammon",
         plik: "mammon",
         opis: "Mammon respi się sam z siebie na kanale ekonomii i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
         zdobywasz: "30-60 Solid Dice (przynajmniej 1 atak) lub 60-100 (przynajmniej 1 ULT) po pokonaniu Mammona, plus dodatkowe 30-50 dla TOP 3 graczy z największymi obrażeniami",
