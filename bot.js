@@ -2017,7 +2017,7 @@ const HELP_STRONY = [
         cooldown: "1 godzina (dla osoby zakładającej grę)",
     },
     {
-        komenda: "<:PSYCHE:1497268261648076910> /papier-kamień-nożyce",
+        komenda: "<:SakiriAngry:1307711849705508925> /papier-kamień-nożyce",
         plik: "papier-kamień-nożyce",
         opis: "Wyzwij innego gracza na pojedynek Papier-Kamień-Nożyce o Solid Dice - ustawiasz stawkę, przeciwnik dołącza, obaj wybieracie postać z /plecak i gracie do 3 wygranych rund (10 sekund na wybór, remisy w rundzie się powtarzają).",
         zdobywasz: "Stawka pojedynku od przeciwnika (wygrana)",
