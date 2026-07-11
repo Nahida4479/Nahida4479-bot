@@ -1969,7 +1969,7 @@ const HELP_STRONY = [
         cooldown: "48 godzin",
     },
     {
-        komenda: "/kawiarnia",
+        komenda: "☕ /kawiarnia",
         plik: "kawiarnia",
         opis: "Kawiarnia produkuje Solid Dice co godzinę - odbierz zgromadzoną ilość, kiedy chcesz.",
         zdobywasz: "1 Solid Dice za każdą pełną godzinę od ostatniego odbioru (magazyn max 48)",
@@ -2001,7 +2001,7 @@ const HELP_STRONY = [
         cooldown: "10 minut",
     },
     {
-        komenda: "/roll",
+        komenda: "<:Red_roll:1512521789748547715> /roll",
         plik: "roll",
         opis: "Wylosuj 10 przedmiotów np. postacie, dodatkowe Solid Dice.",
         zdobywasz: "Przedmioty, postacie i losowo dodatkowe Solid Dice (np. 5x Solid Dice = +5)",
@@ -2041,7 +2041,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/skiny",
+        komenda: "🎨 /skiny",
         plik: "skiny",
         opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy z 18 skinów ma swój własny, unikalny bonus, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
         zdobywasz: "Kosmetyczny skin na stałe + dostęp do jego unikalnego bonusu",
@@ -2049,7 +2049,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/plecak",
+        komenda: "🎒 /plecak",
         plik: "plecak",
         opis: "Podgląd Twojego konta: aktualne i łącznie zdobyte Solid Dice, miejsce w topce serwera, zebrane postacie z /roll oraz kupione skiny z /skiny.",
         zdobywasz: "Nie dotyczy - to tylko podgląd Twojego stanu konta",
@@ -2057,7 +2057,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/profil",
+        komenda: "<:NTE:1514255338843672687> /profil",
         plik: "profil",
         opis: "Sprawdź swój profil (lub profil innego gracza) - łączne Solid Dice i aktywny bonus. Wybierz jeden z posiadanych skinów, aby aktywować jego unikalny bonus (można mieć aktywny tylko jeden na raz).",
         zdobywasz: "Nie dotyczy - to tylko podgląd i wybór aktywnego bonusu",
@@ -2065,7 +2065,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/nteleaderboard",
+        komenda: "🏆 /nteleaderboard",
         plik: "nteleaderboard",
         opis: "Wyświetl ranking graczy na serwerze według łącznie zdobytych Solid Dice.",
         zdobywasz: "Nie dotyczy - to tylko podgląd rankingu serwera",
@@ -2073,7 +2073,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/animacje",
+        komenda: "🎞️ /animacje",
         plik: "animacje",
         opis: "Włącz lub wyłącz animację pokazywaną przy /roll.",
         zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
@@ -2081,7 +2081,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "/pingcooldown",
+        komenda: "🔔 /pingcooldown",
         plik: "pingcooldown",
         opis: "Włącz/wyłącz oznaczanie Cię na kanale ekonomii, gdy zakończy się cooldown na jedną z Twoich komend.",
         zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
@@ -2106,7 +2106,7 @@ function rozbijEtykieteHelp(tekst) {
     const wlasna = tekst.match(/^<a?:(\w+):(\d+)>\s*(.*)$/);
     if (wlasna) return { emoji: { id: wlasna[2], name: wlasna[1] }, label: wlasna[3] };
 
-    const unicode = tekst.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
+    const unicode = tekst.match(/^(\p{Extended_Pictographic}️?)\s*(.*)$/u);
     if (unicode) return { emoji: unicode[1], label: unicode[2] };
 
     return { emoji: undefined, label: tekst };
