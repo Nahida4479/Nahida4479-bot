@@ -1969,7 +1969,7 @@ const HELP_STRONY = [
         cooldown: "48 godzin",
     },
     {
-        komenda: "☕ /kawiarnia",
+        komenda: "<:MintSleepy:1307505870241796177> /kawiarnia",
         plik: "kawiarnia",
         opis: "Kawiarnia produkuje Solid Dice co godzinę - odbierz zgromadzoną ilość, kiedy chcesz.",
         zdobywasz: "1 Solid Dice za każdą pełną godzinę od ostatniego odbioru (magazyn max 48)",
@@ -2041,7 +2041,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "🎨 /skiny",
+        komenda: "<:EsperZeroSunglasses:1497691460588404746> /skiny",
         plik: "skiny",
         opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy z 18 skinów ma swój własny, unikalny bonus, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
         zdobywasz: "Kosmetyczny skin na stałe + dostęp do jego unikalnego bonusu",
@@ -2049,7 +2049,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "🎒 /plecak",
+        komenda: "<:AppraiserWave:1497289991443845271> /plecak",
         plik: "plecak",
         opis: "Podgląd Twojego konta: aktualne i łącznie zdobyte Solid Dice, miejsce w topce serwera, zebrane postacie z /roll oraz kupione skiny z /skiny.",
         zdobywasz: "Nie dotyczy - to tylko podgląd Twojego stanu konta",
@@ -2065,7 +2065,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "🏆 /nteleaderboard",
+        komenda: "<:MintSigma:1307501081315508234> /nteleaderboard",
         plik: "nteleaderboard",
         opis: "Wyświetl ranking graczy na serwerze według łącznie zdobytych Solid Dice.",
         zdobywasz: "Nie dotyczy - to tylko podgląd rankingu serwera",
@@ -2073,7 +2073,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "🎞️ /animacje",
+        komenda: "<:ANIMA:1497268057213505556> /animacje",
         plik: "animacje",
         opis: "Włącz lub wyłącz animację pokazywaną przy /roll.",
         zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
@@ -2081,7 +2081,7 @@ const HELP_STRONY = [
         cooldown: "Brak",
     },
     {
-        komenda: "🔔 /pingcooldown",
+        komenda: "<:HappyMint:1497674544738205858> /pingcooldown",
         plik: "pingcooldown",
         opis: "Włącz/wyłącz oznaczanie Cię na kanale ekonomii, gdy zakończy się cooldown na jedną z Twoich komend.",
         zdobywasz: "Nie dotyczy - to tylko ustawienia Twojego konta",
