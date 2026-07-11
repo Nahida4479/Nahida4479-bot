@@ -1969,7 +1969,7 @@ const HELP_STRONY = [
         cooldown: "48 godzin",
     },
     {
-        komenda: "<:MintSleepy:1307505870241796177> /kawiarnia",
+        komenda: "<:JiuyuanWithWine:1497691218354897058> /kawiarnia",
         plik: "kawiarnia",
         opis: "Kawiarnia produkuje Solid Dice co godzinę - odbierz zgromadzoną ilość, kiedy chcesz.",
         zdobywasz: "1 Solid Dice za każdą pełną godzinę od ostatniego odbioru (magazyn max 48)",
