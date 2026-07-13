@@ -651,6 +651,10 @@ async function zakonczGre(gra, wynik, deps) {
             const { bonusTekst: bonusWieziTekst } = await deps.dodajBonusWiezi(gracz.id, gra.guildId, "mahjong");
             if (bonusWieziTekst) bonusPostaciTekst += ` + ${bonusWieziTekst}`;
 
+            // 20% szans, że cała nagroda trafi też do więzi losowej posiadanej postaci.
+            const { bonusTekst: bonusLosowyTekst } = await deps.mozliwyLosowyBonusWiezi(gracz.id, gra.guildId, nagroda);
+            if (bonusLosowyTekst) bonusPostaciTekst += ` + ${bonusLosowyTekst}`;
+
             podsumowanie += `<@${gracz.id}> +${nagroda} <:Red_roll:1512521789748547715>${bonus}${bonusPostaciTekst}\n`;
         }
     }

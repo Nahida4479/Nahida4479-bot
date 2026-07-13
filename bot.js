@@ -288,7 +288,7 @@ client.once("ready", async () => {
         try {
             // Termin kolejnego spawnu trzymamy w bazie (nie w pamięci) - inaczej każdy
             // restart bota (deploy, crash, pm2 restart) zerowałby odliczanie i ustawiał
-            // nowe losowe 12-24h od nowa, przez co Mammon mógłby nigdy się nie zrespić
+            // nowe losowe 6-12h od nowa, przez co Mammon mógłby nigdy się nie zrespić
             // samoistnie przy częstych restartach.
             const serweryWynik = await db.execute("SELECT guild_id, kanal_id, nastepny_mammon FROM serwery WHERE kanal_id IS NOT NULL");
             const teraz = Date.now();
@@ -966,6 +966,23 @@ async function dodajSdDoWiezi(userId, guildId, postac, ilosc) {
               ON CONFLICT(user_id, guild_id, postac) DO UPDATE SET sd_zdobyte = sd_zdobyte + ?`,
         args: [userId, guildId, postac, ilosc, ilosc],
     });
+}
+
+// 20% szans, że cała nagroda Solid Dice z komendy ekonomii trafi DODATKOWO
+// (obok zwykłego zasilenia konta) do więzi losowej postaci z /bond, którą
+// gracz posiada w /plecak. Niezależne od zwykłego przyznawania nagrody.
+const SZANSA_LOSOWA_WIEZ = 0.20;
+
+async function mozliwyLosowyBonusWiezi(userId, guildId, ilosc) {
+    if (ilosc <= 0 || Math.random() >= SZANSA_LOSOWA_WIEZ) return { bonusTekst: null };
+
+    const postacieGracza = await pobierzPostacieGracza(userId, guildId);
+    const kandydaci = postacieGracza.filter((p) => WIEZ_POSTACI[p]);
+    if (kandydaci.length === 0) return { bonusTekst: null };
+
+    const postac = kandydaci[Math.floor(Math.random() * kandydaci.length)];
+    await dodajSdDoWiezi(userId, guildId, postac, ilosc);
+    return { bonusTekst: `🎲 Szczęśliwe trafienie (20%)! **+${ilosc}** trafiło też do więzi z **${WIEZ_EMOJI[postac] || ""} ${postac}**` };
 }
 
 // Emotki postaci - używane w /papier-kamień-nożyce i /bond. Brak własnej emotki
@@ -1695,8 +1712,8 @@ const MAMMON_COOLDOWN_ATAK_MS = 1000;
 const MAMMON_COOLDOWN_ULT_MS = 10000;
 const MAMMON_CZAS_DOLACZANIA_MS = 30000;
 const MAMMON_CZAS_WALKI_MS = 60000;
-const MAMMON_SPAWN_MIN_H = 12;
-const MAMMON_SPAWN_MAX_H = 24;
+const MAMMON_SPAWN_MIN_H = 6;
+const MAMMON_SPAWN_MAX_H = 12;
 
 const aktywneMammony = new Map();
 // guildId -> { pozostale, kanal } - kolejka dodatkowych, natychmiastowych respawnów
@@ -1948,7 +1965,7 @@ const HELP_STRONY = [
         komenda: `${WIEZ_EMOJI.Sakiri} /daily`,
         plik: "daily",
         opis: "Odbierz codzienną nagrodę Solid Dice.",
-        zdobywasz: "10-14 Solid Dice",
+        zdobywasz: "20-50 Solid Dice",
         tracisz: "Nie dotyczy",
         cooldown: "24 godziny",
     },
@@ -2094,7 +2111,7 @@ const HELP_STRONY = [
         opis: "Mammon respi się sam z siebie na kanale ekonomii i można go pokonać wspólnie z innymi graczami (administracja może też przywołać go ręcznie przez /mammonevent).",
         zdobywasz: "30-60 Solid Dice (przynajmniej 1 atak) lub 60-100 (przynajmniej 1 ULT) po pokonaniu Mammona, plus dodatkowe 30-50 dla TOP 3 graczy z największymi obrażeniami",
         tracisz: "Nie dotyczy",
-        cooldown: "Mammon pojawia się sam z siebie co 12-24 godzin (losowo) na serwer",
+        cooldown: "Mammon pojawia się sam z siebie co 6-12 godzin (losowo) na serwer",
     },
 ];
 
@@ -2531,9 +2548,10 @@ client.on("interactionCreate", async (interaction) => {
             await interaction.editReply({ content: cooldown });
             return;
         }
-        const ilosc = Math.floor(Math.random() * 5) + 10;
+        const ilosc = losowaLiczba(20, 50);
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
         const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "daily");
+        const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, ilosc);
 
         const wiadomosci = [
             "Wykonałeś/aś codzienne misje",
@@ -2549,7 +2567,7 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0x00FF00)
             .setTitle(`${EMOJI_NAGRODA} Daily`)
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`})
+            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.editReply({ embeds: [embed], files: [obrazek]});
@@ -2880,6 +2898,7 @@ client.on("interactionCreate", async (interaction) => {
         const ilosc = Math.floor(Math.random() * 5) + 5;
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
         const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "work");
+        const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, ilosc);
 
         let bonusNadgodzin = 0;
         if (aktywnyBonus?.bonus.typ === "work_szansa_extra" && Math.random() < aktywnyBonus.bonus.szansa) {
@@ -2913,7 +2932,7 @@ client.on("interactionCreate", async (interaction) => {
             .setColor(0x00FF00)
             .setTitle(`${EMOJI_NAGRODA} Work`)
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNadgodzin > 0 ? `\n+${bonusNadgodzin} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - Nadgodziny!)` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`})
+            .addFields({ name: "Otrzymałeś/aś", value: `**${ilosc} Solid DIce** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNadgodzin > 0 ? `\n+${bonusNadgodzin} Solid Dice <:Red_roll:1512521789748547715> (bonus od **${aktywnyBonus.nazwa}** - Nadgodziny!)` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}`})
             .setThumbnail("attachment://Red_roll.jpg")
 
         await interaction.editReply({ embeds: [embed], files: [obrazek] });
@@ -3052,6 +3071,7 @@ client.on("interactionCreate", async (interaction) => {
             const nagrodaWyscigu = losowaLiczba(5, 15);
             const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaWyscigu, aktywnyBonus);
             const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "wyścig");
+            const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, nagrodaWyscigu);
 
             let bonusChizTekst = "";
             if (aktywnyBonus?.bonus.typ === "wyscig_extra_sd") {
@@ -3060,7 +3080,7 @@ client.on("interactionCreate", async (interaction) => {
             }
 
             await interaction.editReply({
-                content: naglowekWyscigu + rysujPlansze() + `\n\n${EMOJI_NAGRODA} **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                content: naglowekWyscigu + rysujPlansze() + `\n\n${EMOJI_NAGRODA} **Meta!** Zdobywasz **+${nagrodaWyscigu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusChizTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}`,
                 components: [przyciskiWyscigu(true)],
             }).catch(() => {});
         }
@@ -3076,7 +3096,7 @@ client.on("interactionCreate", async (interaction) => {
             await interaction.editReply({ content: cooldown });
             return;
         }
-        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba, pobierzAktywnySkinIBonus, dodajBonusDoNagrody, dodajBonusWiezi });
+        await rozpocznijMajong(interaction, { addSolidDice, losowaLiczba, pobierzAktywnySkinIBonus, dodajBonusDoNagrody, dodajBonusWiezi, mozliwyLosowyBonusWiezi });
         return;
     }
 
@@ -3145,6 +3165,7 @@ client.on("interactionCreate", async (interaction) => {
                 const nagrodaLowienia = losowaLiczba(1, 10);
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaLowienia, aktywnyBonus);
                 const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "łowienie");
+                const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, nagrodaLowienia);
 
                 let bonusSakiriTekst = "";
                 if (aktywnyBonus?.bonus.typ === "lowienie_extra_sd") {
@@ -3153,7 +3174,7 @@ client.on("interactionCreate", async (interaction) => {
                 }
 
                 await interaction.editReply({
-                    content: rysujJezioro() + `\n\n${EMOJI_NAGRODA} **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                    content: rysujJezioro() + `\n\n${EMOJI_NAGRODA} **Złapałeś wszystkie ryby!** Zdobywasz **+${nagrodaLowienia}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusSakiriTekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}`,
                     components: [przyciskiLowienia(true)],
                 }).catch(() => {});
             } else {
@@ -3276,8 +3297,9 @@ client.on("interactionCreate", async (interaction) => {
                 const nagrodaAutomatu = losowaLiczba(1, 10);
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaAutomatu, aktywnyBonus);
                 const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "automat");
+                const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, nagrodaAutomatu);
                 await interaction.editReply({
-                    content: rysujAutomat() + `\n\n${EMOJI_NAGRODA} **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}`,
+                    content: rysujAutomat() + `\n\n${EMOJI_NAGRODA} **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}`,
                     components: [przyciskiAutomatu(true)],
                 }).catch(() => {});
             } else {
@@ -3817,7 +3839,8 @@ if (interaction.commandName === "bond") {
         .setTitle("🔗 System więzi z postaciami")
         .setDescription(
             "Więź z postacią rośnie, grając nią w `/papier-kamień-nożyce` i **wygrywając** - liczy się suma Solid Dice zdobytych tą postacią w tej grze. " +
-            "Im wyższy poziom, tym mocniejszy bonus w komendzie ekonomii przypisanej do tej postaci. Poziom 10 dodatkowo daje 1 startowy punkt w samym `/papier-kamień-nożyce`."
+            "Im wyższy poziom, tym mocniejszy bonus w komendzie ekonomii przypisanej do tej postaci. Poziom 10 dodatkowo daje 1 startowy punkt w samym `/papier-kamień-nożyce`. " +
+            "Dodatkowo: każda nagroda z komend ekonomii (np. `/work`, `/mahjong`, `/wyścig`) ma 20% szans trafić też do więzi losowej posiadanej przez Ciebie postaci."
         );
 
     for (const [postac, cfg] of Object.entries(WIEZ_POSTACI)) {
@@ -4053,6 +4076,7 @@ if (interaction.commandName === "pinkpawsheist") {
         const ilosc = losowaLiczba(30, 150);
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
         const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "pinkpawsheist");
+        const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, ilosc);
 
         let bonusNanally3Tekst = "";
         if (aktywnyBonus?.bonus.typ === "pinkpawsheist_szansa_extra" && Math.random() < aktywnyBonus.bonus.szansa) {
@@ -4071,7 +4095,7 @@ if (interaction.commandName === "pinkpawsheist") {
             .setColor(0x00FF00)
             .setTitle(`${EMOJI_NAGRODA} Pink Paws Heist - Sukces!`)
             .setDescription(wiadomosc)
-            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}` });
+            .addFields({ name: "Otrzymałeś/aś", value: `**+${ilosc} Solid Dice** <:Red_roll:1512521789748547715>${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${bonusNanally3Tekst}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}` });
 
         await interaction.editReply({ embeds: [embed] });
 

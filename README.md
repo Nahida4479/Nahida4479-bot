@@ -89,7 +89,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 
 ## 😈 Event: Mammon
 
-Mammon respi się sam z siebie co 12-24h (losowo) na kanale ustawionym w `/ntegra` - pokonanie go wspólnie z innymi graczami daje Solid Dice, z bonusem dla TOP 3 graczy z największymi obrażeniami.
+Mammon respi się sam z siebie co 6-12h (losowo) na kanale ustawionym w `/ntegra` - pokonanie go wspólnie z innymi graczami daje Solid Dice, z bonusem dla TOP 3 graczy z największymi obrażeniami.
 
 ---
 
@@ -118,6 +118,8 @@ Grając (i wygrywając) daną postacią w `/papier-kamień-nożyce`, buduje się
 | Chiz | `/pinkpawsheist` |
 
 Poziomy kumulują się - na poziomie N aktywne są bonusy wszystkich poziomów 1..N naraz, nie tylko najwyższego osiągniętego. Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 jest wspólny dla wszystkich postaci - startowy punkt w `/papier-kamień-nożyce`. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`, a wszystkie aktualnie aktywne bonusy (więź + skin) naraz w `/bonusy`.
+
+Dodatkowo: każda nagroda Solid Dice z komendy ekonomii (`/daily`, `/work`, `/pinkpawsheist`, `/wyścig`, `/łowienie`, `/automat`, `/mahjong`) ma **20% szans**, że cała trafi też - obok zwykłego zasilenia konta - do więzi losowej postaci, którą aktualnie posiadasz w `/plecak`.
 
 ---
 
