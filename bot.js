@@ -982,7 +982,7 @@ async function mozliwyLosowyBonusWiezi(userId, guildId, ilosc) {
 
     const postac = kandydaci[Math.floor(Math.random() * kandydaci.length)];
     await dodajSdDoWiezi(userId, guildId, postac, ilosc);
-    return { bonusTekst: `🎲 Szczęśliwe trafienie (20%)! **+${ilosc}** trafiło też do więzi z **${WIEZ_EMOJI[postac] || ""} ${postac}**` };
+    return { bonusTekst: `<:EsperZeroSunglasses:1497691460588404746> Bonus (20% szans)! **+${ilosc}** <:Red_roll:1512521789748547715> trafiło do levelu bonda z **${WIEZ_EMOJI[postac] || ""} ${postac}**` };
 }
 
 // Emotki postaci - używane w /papier-kamień-nożyce i /bond. Brak własnej emotki
