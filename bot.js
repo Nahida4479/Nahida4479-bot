@@ -1333,7 +1333,7 @@ function formatCzas(ms) {
     return `${godziny}h ${minuty}m ${sekundy}s`;
 }
 
-const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill", "Jiuyuan", "Hotori", "Nanally", "Chiz", "Lacrimosa", "Chaos"];
+const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill", "Jiuyuan", "Hotori", "Nanally", "Chiz", "Lacrimosa", "Chaos", "Linko", "Iroi", "Zankou", "Linko"];
 const POSTACIE_RZADKIE = ["Mint", "Skia", "Edgar", "Aurelia", "Adler", "Haniel"];
 
 const items = {
