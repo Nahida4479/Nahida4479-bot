@@ -3539,7 +3539,8 @@ if (interaction.commandName === "plecak") {
     const przyciskSzukaj = new ButtonBuilder().setCustomId("szukaj_postac").setLabel("🔍 Szukaj").setStyle(ButtonStyle.Secondary).setDisabled(postacie.rows.length === 0);
     const przyciskNastepny = new ButtonBuilder().setCustomId("nastepna").setLabel("Nastepny").setStyle(ButtonStyle.Primary).setDisabled(maxStron <= 1);
     const przyciskSkiny = new ButtonBuilder().setCustomId("plecak_skiny_toggle").setLabel("🎨 Skiny").setStyle(ButtonStyle.Secondary).setDisabled(posiadaneSkiny.length === 0);
-    const wierszPrzyciskow = new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny);
+    const przyciskListaPostaci = new ButtonBuilder().setCustomId("plecak_lista_postaci").setLabel("📖 Lista postaci").setStyle(ButtonStyle.Secondary);
+    const wierszPrzyciskow = new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny, przyciskListaPostaci);
 
     let aktualnaStrona = 0;
     let aktualnaStronaSkiny = 0;
@@ -3556,6 +3557,22 @@ if (interaction.commandName === "plecak") {
 
     collector.on("collect", async (i) => {
     try {
+        if (i.customId === "plecak_lista_postaci") {
+            const posiadane = new Set(postacie.rows.map((p) => p.postac));
+            const wierszPostaci = (nazwa) => `${nazwa} - ${posiadane.has(nazwa) ? "✅" : "❌"}`;
+            const legendarnePosiadane = POSTACIE_LEGENDARNE.filter((p) => posiadane.has(p)).length;
+            const rzadkiePosiadane = POSTACIE_RZADKIE.filter((p) => posiadane.has(p)).length;
+
+            const tekst =
+                `<:Mint:1523097622187999365> **Legendarne (${legendarnePosiadane}/${POSTACIE_LEGENDARNE.length}):**\n` +
+                POSTACIE_LEGENDARNE.map(wierszPostaci).join("\n") +
+                `\n\n<:MintShock:1523097608548257824> **Rzadkie (${rzadkiePosiadane}/${POSTACIE_RZADKIE.length}):**\n` +
+                POSTACIE_RZADKIE.map(wierszPostaci).join("\n");
+
+            await i.reply({ content: tekst, ephemeral: true });
+            return;
+        }
+
         if (i.customId === "szukaj_postac") {
             const modal = new ModalBuilder()
                 .setCustomId("plecak_szukaj_modal")
@@ -3590,7 +3607,7 @@ if (interaction.commandName === "plecak") {
             await submitted.update({
                 embeds: nowaStronaSzukana.embeds,
                 files: nowaStronaSzukana.files,
-                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny)]
+                components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny, przyciskListaPostaci)]
             });
             return;
         }
@@ -3618,7 +3635,7 @@ if (interaction.commandName === "plecak") {
         await i.update({
             embeds: nowaZawartosc.embeds,
             files: nowaZawartosc.files,
-            components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny)]
+            components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny, przyciskListaPostaci)]
         });
     } catch (error) {
         console.error("Błąd podczas aktualizacji plecaka:", error);
@@ -3630,7 +3647,8 @@ if (interaction.commandName === "plecak") {
         przyciskSzukaj.setDisabled(true);
         przyciskNastepny.setDisabled(true);
         przyciskSkiny.setDisabled(true);
-        wiadomosc.edit({ components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny)] }).catch(() => {});
+        przyciskListaPostaci.setDisabled(true);
+        wiadomosc.edit({ components: [new ActionRowBuilder().addComponents(przyciskPoprzedni, przyciskSzukaj, przyciskNastepny, przyciskSkiny, przyciskListaPostaci)] }).catch(() => {});
     });
 }
 
