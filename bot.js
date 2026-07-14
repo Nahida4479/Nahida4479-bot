@@ -3503,7 +3503,6 @@ if (interaction.commandName === "plecak") {
 
     const solidDiceAktualne = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice) : 0;
     const solidDiceTotal = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice_total) : 0;
-    const sumaRolli = solidDiceTotal / 10;
 
     const rankingWynik = await db.execute({
         sql: "SELECT COUNT(*) AS wyzsi FROM ekonomia WHERE guild_id = ? AND solid_dice_total > ?",
@@ -3527,7 +3526,7 @@ if (interaction.commandName === "plecak") {
         const p = postacie.rows[indeks - 1];
         const embed = new EmbedBuilder()
             .setColor(0x2B2D31)
-            .setDescription(`**Postać: ${p.postac}**\n\n**Zgromadzone kopie**\n**Kopie:** ${p.ilosc}/6\n\n**Statystyki Konta**\n**Rolle:** ${Math.floor(sumaRolli)} | **Top:** #${pozycjaTop}`)
+            .setDescription(`**Postać: ${p.postac}**\n\n**Zgromadzone kopie**\n**Kopie:** ${p.ilosc}/6`)
             .setFooter({ text: `Strona ${indeks + 1} / ${maxStron}` });
 
         const pliki = [];
