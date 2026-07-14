@@ -63,7 +63,7 @@ The bot uses **Turso (libSQL)** - a free cloud LibSQL database. Tables are creat
 | `/papier-kamień-nożyce` | Challenge another player to a rock-paper-scissors duel for Solid Dice - best of 3 rounds | 15 min (challenger only) |
 | `/bond` | Check the character bond system - levels, bonuses and your own progress | none |
 | `/bonusy` | See your (or someone else's) currently active bonuses - from bonds and from a skin | none |
-| `/skiny` | Buy character skins from the shop - prices fluctuate every 2h, each of the 18 skins has a different bonus | none |
+| `/skiny` | Buy character skins from the shop - prices fluctuate every 2h, each of the 20 skins has a different bonus | none |
 | `/plecak` | Check your Solid Dice, characters, skins and leaderboard rank | none |
 | `/profil` | Check your profile (or someone else's) and activate one owned skin's bonus | none |
 | `/nteleaderboard` | Player ranking by **ALL** Solid Dice ever earned | none |
@@ -92,7 +92,7 @@ Mammon spawns on its own every 6-12h (random) in the channel set via `/ntegra` -
 
 ## 🎨 Skins and bonuses
 
-Each of the 18 skins in `/skiny` has its own unique bonus attached (e.g. a shorter cooldown on a specific command, a chance at extra Solid Dice, a boost while fighting Mammon) - even skins of the same character differ in their bonus. Skin prices (1500-10000 Solid Dice, depending on bonus strength) fluctuate randomly by ±5-50% every 2 hours, independently per skin.
+Each of the 20 skins in `/skiny` has its own unique bonus attached (e.g. a shorter cooldown on a specific command, a chance at extra Solid Dice, a boost while fighting Mammon) - even skins of the same character differ in their bonus. Skin prices (500-10000 Solid Dice, depending on bonus strength) fluctuate randomly by ±5-50% every 2 hours, independently per skin.
 
 Buying a skin doesn't activate its bonus automatically - it has to be selected in `/profil`. Only one bonus can be active at a time.
 

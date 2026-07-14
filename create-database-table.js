@@ -199,6 +199,8 @@ export async function initDB() {
         ["m_mc3.jpg", "MC"],
         ["m_mc4.jpg", "MC"],
         ["m_mc5.jpg", "MC"],
+        ["Shinku_student.png", "Shinku"],
+        ["Shinku_bond.png", "Shinku"],
     ];
 
     for (const [plik, nazwa] of startoweSkiny) {

@@ -504,11 +504,27 @@ async function getSolidDice(userId, guildId) {
 
 // Skiny postaci
 
-// Bonus jest przypisany do konkretnego pliku skina - każdy z 18 skinów ma inny
+// Bonus jest przypisany do konkretnego pliku skina - każdy z 20 skinów ma inny
 // bonus, nawet skiny tej samej postaci (np. 4 skiny Nanally mają 4 różne bonusy).
-// Ceny bazowe 1500-10000 Solid Dice, dopasowane do siły bonusu - mocniejszy/
+// Ceny bazowe 500-10000 Solid Dice, dopasowane do siły bonusu - mocniejszy/
 // bardziej uniwersalny bonus = wyższa cena.
 const BONUSY_SKINOW = {
+    "Shinku_student.png": {
+        cenaBazowa: 500,
+        nazwaBonusu: "Pracowita studentka",
+        opis: "10% szans na dodatkowe +5 Solid Dice po użyciu `/work`.",
+        typ: "work_szansa_extra",
+        szansa: 0.10,
+        wartosc: 5,
+    },
+    "Shinku_bond.png": {
+        cenaBazowa: 1000,
+        nazwaBonusu: "Agentka na zlecenie",
+        opis: "20% szans na dodatkowe +3 Solid Dice po użyciu `/work`.",
+        typ: "work_szansa_extra",
+        szansa: 0.20,
+        wartosc: 3,
+    },
     "Hotori3.jpg": {
         cenaBazowa: 1500,
         nazwaBonusu: "Szybsze łowienie",
@@ -2060,9 +2076,9 @@ const HELP_STRONY = [
     {
         komenda: "<:EsperZeroSunglasses:1497691460588404746> /skiny",
         plik: "skiny",
-        opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy z 18 skinów ma swój własny, unikalny bonus, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
+        opis: "Kup skiny postaci w sklepie (możesz je wyświetlić w /plecak w zakładce Skiny) - każdy z 20 skinów ma swój własny, unikalny bonus, aktywowany przez /profil. Ceny wahają się losowo o ±5-50% od ceny bazowej co 2 godziny, niezależnie dla każdego skina.",
         zdobywasz: "Kosmetyczny skin na stałe + dostęp do jego unikalnego bonusu",
-        tracisz: "Aktualna cena skina (1500-10000 Solid Dice, zależnie od bonusu) - sprawdź ją w sklepie przed kupnem",
+        tracisz: "Aktualna cena skina (500-10000 Solid Dice, zależnie od bonusu) - sprawdź ją w sklepie przed kupnem",
         cooldown: "Brak",
     },
     {

@@ -66,7 +66,7 @@ Bot używa **Turso (libSQL)** - bezpłatnej bazy danych SQLite w chmurze. Tabele
 | `/papier-kamień-nożyce` | Wyzwij innego gracza na pojedynek o Solid Dice - do 3 wygranych rund | 15 min (dla wyzywającego) |
 | `/bond` | Sprawdź system więzi z postaciami - poziomy, bonusy i swój postęp | brak |
 | `/bonusy` | Zobacz swoje (albo czyjeś) aktualnie aktywne bonusy - z więzi i ze skina | brak |
-| `/skiny` | Kup skiny postaci w sklepie - ceny wahają się losowo co 2h, każdy z 18 skinów ma inny bonus | brak |
+| `/skiny` | Kup skiny postaci w sklepie - ceny wahają się losowo co 2h, każdy z 20 skinów ma inny bonus | brak |
 | `/plecak` | Sprawdź swoje Solid Dice, postacie, skiny i miejsce w rankingu | brak |
 | `/profil` | Sprawdź swój profil (lub czyjś) i aktywuj bonus jednego z posiadanych skinów | brak |
 | `/nteleaderboard` | Ranking graczy według łącznie zdobytych Solid Dice | brak |
@@ -95,7 +95,7 @@ Mammon respi się sam z siebie co 6-12h (losowo) na kanale ustawionym w `/ntegra
 
 ## 🎨 Skiny i bonusy
 
-Każdy z 18 skinów w `/skiny` ma swój własny, unikalny bonus (np. krótszy cooldown konkretnej komendy, szansa na dodatkowe Solid Dice, wzmocnienie w walce z Mammonem) - nawet skiny tej samej postaci różnią się bonusem. Ceny skinów (1500-10000 Solid Dice, zależnie od siły bonusu) zmieniają się losowo o ±5-50% co 2 godziny, niezależnie dla każdego skina.
+Każdy z 20 skinów w `/skiny` ma swój własny, unikalny bonus (np. krótszy cooldown konkretnej komendy, szansa na dodatkowe Solid Dice, wzmocnienie w walce z Mammonem) - nawet skiny tej samej postaci różnią się bonusem. Ceny skinów (500-10000 Solid Dice, zależnie od siły bonusu) zmieniają się losowo o ±5-50% co 2 godziny, niezależnie dla każdego skina.
 
 Zakup skina nie aktywuje jego bonusu automatycznie - trzeba go wybrać w `/profil`. Można mieć aktywny tylko jeden bonus na raz.
 
