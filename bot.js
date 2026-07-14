@@ -3452,7 +3452,7 @@ if (interaction.commandName === "plecak") {
     "Adler": "Adler.jpg",
     "Aurelia": "Aurelia.jpg",
     "Baicang": "Baicang.jpg",
-    "Chaos": "Chaos.jpg",
+    "Chaos": "Chaos.png",
     "Chiz": "Chiz.jpg",
     "Daffodill": "Daffodill.jpg",
     "Edgar": "Edgar.jpg",
@@ -3465,7 +3465,12 @@ if (interaction.commandName === "plecak") {
     "Mint": "Mint.jpg",
     "Nanally": "Nanally.jpg",
     "Sakiri": "Sakiri.jpg",
-    "Skia": "Skia.jpg"
+    "Skia": "Skia.jpg",
+    "Shinku": "Shinku.png",
+    "Iroi": "Iroi.png",
+    "Zankou": "zankou.gif",
+    "Linko": "linko.gif"
+
 };
 
     let epickieSzt = 0, rzadkieSzt = 0, zwykleSzt = 0;
