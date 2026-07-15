@@ -1917,7 +1917,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
             if (nagroda > 0) {
                 const nagrodaWynik = await przyznajNagrode(userId, guildId, nagroda, gracz.aktywnyBonus);
                 bonusPostaciTekst = nagrodaWynik.bonusTekst;
-                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} <:Red_roll:1512521789748547715> za TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
+                podsumowanie += `<@${userId}> +${nagroda} Solid Dice <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
             }
         }
 
@@ -1932,7 +1932,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
                     {
                         name: "Nagroda",
                         value: nagroda > 0
-                            ? `**+${nagroda}** <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
+                            ? `**+${nagroda} Solid Dice** <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
                             : "Brak nagrody",
                         inline: false,
                     },
@@ -2985,6 +2985,7 @@ client.on("interactionCreate", async (interaction) => {
             "Nie zapomniałeś parasola jak dziś wracałeś/aś z pracy", 
             "Wieszak nie wystrzelił Nahidy z procy",
             "Wieszak nie powiedział skill issues",
+            "Sapphire nie zmutował Nefreza",
 
         ];
         
@@ -4173,6 +4174,7 @@ if (interaction.commandName === "pinkpawsheist") {
             "Uciekłeś/aś z łupem",
             "Nie zostałeś/aś schwytany/a",
             "Akcja zakończona sukcesem!",
+            "Sapphire nie zmutował Nefreza",
         ];
         const wiadomosc = wiadomosci1[Math.floor(Math.random() * wiadomosci1.length)];
 
