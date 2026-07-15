@@ -3552,7 +3552,7 @@ if (interaction.commandName === "plecak") {
         const p = postacie.rows[indeks - 1];
         const embed = new EmbedBuilder()
             .setColor(0x2B2D31)
-            .setDescription(`# Postać: ${POSTAC_ZYWIOL[p.postac] ? `${POSTAC_ZYWIOL[p.postac]} ` : ""}${p.postac}\n\n## Kopie: ${p.ilosc}/6`)
+            .setDescription(`# ${POSTAC_ZYWIOL[p.postac] ? `${POSTAC_ZYWIOL[p.postac]} ` : ""}${p.postac}\n\n## Kopie: ${p.ilosc}/6`)
             .setFooter({ text: `Strona ${indeks + 1} / ${maxStron}` });
 
         const pliki = [];
