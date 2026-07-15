@@ -1911,13 +1911,12 @@ async function zakonczWalkeMammon(guildId, pokonany) {
 
             if (nagroda > 0 && top3Ids.has(userId)) {
                 bonus = losowaLiczba(30, 50);
-                nagroda += bonus;
             }
 
             if (nagroda > 0) {
-                const nagrodaWynik = await przyznajNagrode(userId, guildId, nagroda, gracz.aktywnyBonus);
+                const nagrodaWynik = await przyznajNagrode(userId, guildId, nagroda + bonus, gracz.aktywnyBonus);
                 bonusPostaciTekst = nagrodaWynik.bonusTekst;
-                podsumowanie += `<@${userId}> +${nagroda} Solid Dice <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
+                podsumowanie += `<@${userId}> +${nagroda} Solid Dice <:Red_roll:1512521789748547715>${bonus > 0 ? ` + ${bonus} Solid Dice <:Red_roll:1512521789748547715> (TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
             }
         }
 
@@ -1932,7 +1931,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
                     {
                         name: "Nagroda",
                         value: nagroda > 0
-                            ? `**+${nagroda} Solid Dice** <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
+                            ? `**+${nagroda} Solid Dice** <:Red_roll:1512521789748547715>${bonus > 0 ? ` + **${bonus} Solid Dice** <:Red_roll:1512521789748547715> (TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
                             : "Brak nagrody",
                         inline: false,
                     },
