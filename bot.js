@@ -1353,8 +1353,7 @@ const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill",
 const POSTACIE_RZADKIE = ["Mint", "Skia", "Edgar", "Aurelia", "Adler", "Haniel"];
 
 // Żywioł (Esper) każdej postaci z oryginalnej gry Neverness to Everness -
-// pokazywany jako emotka przy nazwie postaci w /plecak. Zankou nie ma jeszcze
-// potwierdzonego żywiołu w grze (niegrywalna, sam boss/NPC) - brak emotki.
+// pokazywany jako emotka przy nazwie postaci w /plecak.
 const POSTAC_ZYWIOL = {
     Sakiri: "<:INCANTATION:1497268407056338954>",
     Baicang: "<:INCANTATION:1497268407056338954>",
@@ -1369,6 +1368,7 @@ const POSTAC_ZYWIOL = {
     Chaos: "<:LAKSHANA:1497268217373135018>",
     Linko: "<:ANIMA:1497268057213505556>",
     Iroi: "<:ANIMA:1497268057213505556>",
+    Zankou: "<:INCANTATION:1497268407056338954>",
     Shinku: "<:Cosmos:1497268742864900297>",
     Mint: "<:ANIMA:1497268057213505556>",
     Skia: "<:LAKSHANA:1497268217373135018>",
