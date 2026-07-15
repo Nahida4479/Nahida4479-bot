@@ -1352,6 +1352,32 @@ function formatCzas(ms) {
 const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill", "Jiuyuan", "Hotori", "Nanally", "Chiz", "Lacrimosa", "Chaos", "Linko", "Iroi", "Zankou", "Shinku"];
 const POSTACIE_RZADKIE = ["Mint", "Skia", "Edgar", "Aurelia", "Adler", "Haniel"];
 
+// Żywioł (Esper) każdej postaci z oryginalnej gry Neverness to Everness -
+// pokazywany jako emotka przy nazwie postaci w /plecak. Zankou nie ma jeszcze
+// potwierdzonego żywiołu w grze (niegrywalna, sam boss/NPC) - brak emotki.
+const POSTAC_ZYWIOL = {
+    Sakiri: "<:INCANTATION:1497268407056338954>",
+    Baicang: "<:INCANTATION:1497268407056338954>",
+    Hator: "<:LAKSHANA:1497268217373135018>",
+    Fadia: "<:PSYCHE:1497268261648076910>",
+    Daffodill: "<:Chaos:1497268103782989992>",
+    Jiuyuan: "<:ANIMA:1497268057213505556>",
+    Hotori: "<:Cosmos:1497268742864900297>",
+    Nanally: "<:ANIMA:1497268057213505556>",
+    Chiz: "<:Cosmos:1497268742864900297>",
+    Lacrimosa: "<:Chaos:1497268103782989992>",
+    Chaos: "<:LAKSHANA:1497268217373135018>",
+    Linko: "<:ANIMA:1497268057213505556>",
+    Iroi: "<:ANIMA:1497268057213505556>",
+    Shinku: "<:Cosmos:1497268742864900297>",
+    Mint: "<:ANIMA:1497268057213505556>",
+    Skia: "<:LAKSHANA:1497268217373135018>",
+    Edgar: "<:Cosmos:1497268742864900297>",
+    Aurelia: "<:PSYCHE:1497268261648076910>",
+    Adler: "<:INCANTATION:1497268407056338954>",
+    Haniel: "<:PSYCHE:1497268261648076910>",
+};
+
 const items = {
     legendarny: [
         ...POSTACIE_LEGENDARNE.map(p => ({ nazwa: p, typ: "postac_legendarna" })),
@@ -3526,7 +3552,7 @@ if (interaction.commandName === "plecak") {
         const p = postacie.rows[indeks - 1];
         const embed = new EmbedBuilder()
             .setColor(0x2B2D31)
-            .setDescription(`**Postać: ${p.postac}**\n\n**Zgromadzone kopie**\n**Kopie:** ${p.ilosc}/6`)
+            .setDescription(`# Postać: ${POSTAC_ZYWIOL[p.postac] ? `${POSTAC_ZYWIOL[p.postac]} ` : ""}${p.postac}\n\n## Kopie: ${p.ilosc}/6`)
             .setFooter({ text: `Strona ${indeks + 1} / ${maxStron}` });
 
         const pliki = [];
