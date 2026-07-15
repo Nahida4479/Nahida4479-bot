@@ -1016,6 +1016,13 @@ const WIEZ_EMOJI = {
 // Emotka dodawana do informacji o zdobytej nagrodzie w komendach ekonomii.
 const EMOJI_NAGRODA = "<:NanallyRose:1307500093146009691>";
 
+// Podobnie jak w rozbijEtykieteHelp - StringSelectMenuOption.emoji nie przyjmuje
+// gotowej składni <:nazwa:id> jako string, trzeba ją rozbić na {id, name}.
+function parsujEmojiWlasna(tekst) {
+    const wlasna = tekst.match(/^<a?:(\w+):(\d+)>$/);
+    return wlasna ? { id: wlasna[2], name: wlasna[1] } : tekst;
+}
+
 async function pobierzPostacieGracza(userId, guildId) {
     const wynik = await db.execute({
         sql: "SELECT postac FROM postacie WHERE user_id = ? AND guild_id = ? AND ilosc > 0 ORDER BY postac",
@@ -1059,12 +1066,12 @@ async function rozpocznijPojedynekRPS(guildId, p1, p2, stawka, wiadomosc) {
     const menuP1 = new StringSelectMenuBuilder()
         .setCustomId(`rps_postac_${p1.id}`)
         .setPlaceholder(`Postać dla ${p1.username}`)
-        .addOptions(postacieP1.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: WIEZ_EMOJI[p] } : { label: p, value: p })));
+        .addOptions(postacieP1.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: parsujEmojiWlasna(WIEZ_EMOJI[p]) } : { label: p, value: p })));
 
     const menuP2 = new StringSelectMenuBuilder()
         .setCustomId(`rps_postac_${p2.id}`)
         .setPlaceholder(`Postać dla ${p2.username}`)
-        .addOptions(postacieP2.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: WIEZ_EMOJI[p] } : { label: p, value: p })));
+        .addOptions(postacieP2.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: parsujEmojiWlasna(WIEZ_EMOJI[p]) } : { label: p, value: p })));
 
     const wiadomoscWyboru = await wiadomosc.edit({
         content: null,
