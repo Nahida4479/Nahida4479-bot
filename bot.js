@@ -1759,7 +1759,11 @@ const MAMMON_ATAK_OBRAZENIA = 10;
 const MAMMON_ULT_OBRAZENIA = MAMMON_ATAK_OBRAZENIA * 3;
 const MAMMON_COOLDOWN_ATAK_MS = 1000;
 const MAMMON_COOLDOWN_ULT_MS = 10000;
-const MAMMON_CZAS_DOLACZANIA_MS = 30000;
+const MAMMON_CZAS_DOLACZANIA_MS = 45000;
+// Po zamknięciu wstępnej fazy dołączania nadal można dołączyć do trwającej
+// walki, dopóki Mammon nie zejdzie poniżej tego progu HP (żeby ktoś nie
+// dołączał na "dobitkę" niemal martwego bossa dla łatwego miejsca w TOP 3).
+const MAMMON_HP_BLOKADY_DOLACZANIA = 200;
 const MAMMON_CZAS_WALKI_MS = 60000;
 const MAMMON_SPAWN_MIN_H = 6;
 const MAMMON_SPAWN_MAX_H = 12;
@@ -1807,7 +1811,7 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
             "🎲 **Losowa umiejętność:** po dołączeniu dostajesz jedną z 5 losowych, jednorazowych umiejętności\n\n" +
             "Kliknij **⚔️ Dołącz**, aby wziąć udział w walce!"
         )
-        .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 30 sekund!" : "Dołączanie zamknięte" });
+        .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 45 sekund!" : `Nadal możesz dołączyć, dopóki Mammon ma co najmniej ${MAMMON_HP_BLOKADY_DOLACZANIA} HP` });
 }
 
 function panelGraczaMammon(stan, gracz) {
@@ -1863,9 +1867,15 @@ async function aktualizujPublicznaMammona(stan, wymuszona) {
         zawartosc.files = [new AttachmentBuilder(MAMMON_SCIEZKA_OBRAZKA, { name: "mammon.jpg" })];
         stan.obrazekWyslany = true;
     }
-    zawartosc.components = stan.dolaczanieOtwarte
-        ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("mammon_dolacz").setLabel("⚔️ Dołącz").setStyle(ButtonStyle.Danger))]
-        : [];
+    zawartosc.components = stan.zakonczone
+        ? []
+        : [new ActionRowBuilder().addComponents(
+              new ButtonBuilder()
+                  .setCustomId("mammon_dolacz")
+                  .setLabel("⚔️ Dołącz")
+                  .setStyle(ButtonStyle.Danger)
+                  .setDisabled(!stan.dolaczanieOtwarte && stan.hp < MAMMON_HP_BLOKADY_DOLACZANIA)
+          )];
 
     await stan.wiadomosc.edit(zawartosc).catch(() => {});
 }
@@ -2226,8 +2236,12 @@ client.on("interactionCreate", async (interaction) => {
 
        if (interaction.customId === "mammon_dolacz") {
         const stan = aktywneMammony.get(interaction.guild.id);
-        if (!stan || !stan.dolaczanieOtwarte) {
-            await interaction.reply({ content: "❗ Dołączanie do tej walki jest już zamknięte.", ephemeral: true });
+        if (!stan || stan.zakonczone) {
+            await interaction.reply({ content: "❗ Ta walka z Mammonem już się zakończyła.", ephemeral: true });
+            return;
+        }
+        if (!stan.dolaczanieOtwarte && stan.hp < MAMMON_HP_BLOKADY_DOLACZANIA) {
+            await interaction.reply({ content: `❗ Mammon ma już poniżej ${MAMMON_HP_BLOKADY_DOLACZANIA} HP - dołączanie do walki jest zamknięte.`, ephemeral: true });
             return;
         }
 
