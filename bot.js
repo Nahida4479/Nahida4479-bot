@@ -6,12 +6,9 @@ import { existsSync } from "fs";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js"
 import { db, initDB, DbTimeoutError } from "./create-database-table.js";
 import { rozpocznijMajong } from "./majong.js";
-require('./status-api.js');
-// Nest i Raspberry Pi mogą mieć różne sieci (np. Nest bywa IPv6-only, Pi ma
-// zwykle IPv4) - jeśli Node próbuje najpierw adresu z rodziny, która na danym
-// hoście nie działa, połączenia z discord.com/Turso wiszą na ConnectTimeoutError.
-// Ustaw w .env "dns_order=ipv6first" albo "dns_order=ipv4first", żeby wymusić
-// właściwą kolejność na danym hoście - bez tego Node używa swojej domyślnej.
+import "./status-api.js";
+
+
 if (process.env.dns_order === "ipv4first" || process.env.dns_order === "ipv6first") {
     setDefaultResultOrder(process.env.dns_order);
 }
