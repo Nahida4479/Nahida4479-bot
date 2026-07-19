@@ -6,7 +6,7 @@ import { existsSync } from "fs";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js"
 import { db, initDB, DbTimeoutError } from "./create-database-table.js";
 import { rozpocznijMajong } from "./majong.js";
-
+require('./status-api');
 // Nest i Raspberry Pi mogą mieć różne sieci (np. Nest bywa IPv6-only, Pi ma
 // zwykle IPv4) - jeśli Node próbuje najpierw adresu z rodziny, która na danym
 // hoście nie działa, połączenia z discord.com/Turso wiszą na ConnectTimeoutError.
@@ -1016,13 +1016,6 @@ const WIEZ_EMOJI = {
 // Emotka dodawana do informacji o zdobytej nagrodzie w komendach ekonomii.
 const EMOJI_NAGRODA = "<:NanallyRose:1307500093146009691>";
 
-// Podobnie jak w rozbijEtykieteHelp - StringSelectMenuOption.emoji nie przyjmuje
-// gotowej składni <:nazwa:id> jako string, trzeba ją rozbić na {id, name}.
-function parsujEmojiWlasna(tekst) {
-    const wlasna = tekst.match(/^<a?:(\w+):(\d+)>$/);
-    return wlasna ? { id: wlasna[2], name: wlasna[1] } : tekst;
-}
-
 async function pobierzPostacieGracza(userId, guildId) {
     const wynik = await db.execute({
         sql: "SELECT postac FROM postacie WHERE user_id = ? AND guild_id = ? AND ilosc > 0 ORDER BY postac",
@@ -1066,12 +1059,12 @@ async function rozpocznijPojedynekRPS(guildId, p1, p2, stawka, wiadomosc) {
     const menuP1 = new StringSelectMenuBuilder()
         .setCustomId(`rps_postac_${p1.id}`)
         .setPlaceholder(`Postać dla ${p1.username}`)
-        .addOptions(postacieP1.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: parsujEmojiWlasna(WIEZ_EMOJI[p]) } : { label: p, value: p })));
+        .addOptions(postacieP1.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: WIEZ_EMOJI[p] } : { label: p, value: p })));
 
     const menuP2 = new StringSelectMenuBuilder()
         .setCustomId(`rps_postac_${p2.id}`)
         .setPlaceholder(`Postać dla ${p2.username}`)
-        .addOptions(postacieP2.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: parsujEmojiWlasna(WIEZ_EMOJI[p]) } : { label: p, value: p })));
+        .addOptions(postacieP2.slice(0, 25).map((p) => (WIEZ_EMOJI[p] ? { label: p, value: p, emoji: WIEZ_EMOJI[p] } : { label: p, value: p })));
 
     const wiadomoscWyboru = await wiadomosc.edit({
         content: null,
@@ -1358,32 +1351,6 @@ function formatCzas(ms) {
 
 const POSTACIE_LEGENDARNE = ["Sakiri", "Baicang", "Hator", "Fadia", "Daffodill", "Jiuyuan", "Hotori", "Nanally", "Chiz", "Lacrimosa", "Chaos", "Linko", "Iroi", "Zankou", "Shinku"];
 const POSTACIE_RZADKIE = ["Mint", "Skia", "Edgar", "Aurelia", "Adler", "Haniel"];
-
-// Żywioł (Esper) każdej postaci z oryginalnej gry Neverness to Everness -
-// pokazywany jako emotka przy nazwie postaci w /plecak.
-const POSTAC_ZYWIOL = {
-    Sakiri: "<:INCANTATION:1497268407056338954>",
-    Baicang: "<:INCANTATION:1497268407056338954>",
-    Hator: "<:LAKSHANA:1497268217373135018>",
-    Fadia: "<:PSYCHE:1497268261648076910>",
-    Daffodill: "<:Chaos:1497268103782989992>",
-    Jiuyuan: "<:ANIMA:1497268057213505556>",
-    Hotori: "<:Cosmos:1497268742864900297>",
-    Nanally: "<:ANIMA:1497268057213505556>",
-    Chiz: "<:Cosmos:1497268742864900297>",
-    Lacrimosa: "<:Chaos:1497268103782989992>",
-    Chaos: "<:LAKSHANA:1497268217373135018>",
-    Linko: "<:ANIMA:1497268057213505556>",
-    Iroi: "<:ANIMA:1497268057213505556>",
-    Zankou: "<:INCANTATION:1497268407056338954>",
-    Shinku: "<:Cosmos:1497268742864900297>",
-    Mint: "<:ANIMA:1497268057213505556>",
-    Skia: "<:LAKSHANA:1497268217373135018>",
-    Edgar: "<:Cosmos:1497268742864900297>",
-    Aurelia: "<:PSYCHE:1497268261648076910>",
-    Adler: "<:INCANTATION:1497268407056338954>",
-    Haniel: "<:PSYCHE:1497268261648076910>",
-};
 
 const items = {
     legendarny: [
@@ -1759,11 +1726,7 @@ const MAMMON_ATAK_OBRAZENIA = 10;
 const MAMMON_ULT_OBRAZENIA = MAMMON_ATAK_OBRAZENIA * 3;
 const MAMMON_COOLDOWN_ATAK_MS = 1000;
 const MAMMON_COOLDOWN_ULT_MS = 10000;
-const MAMMON_CZAS_DOLACZANIA_MS = 45000;
-// Po zamknięciu wstępnej fazy dołączania nadal można dołączyć do trwającej
-// walki, dopóki Mammon nie zejdzie poniżej tego progu HP (żeby ktoś nie
-// dołączał na "dobitkę" niemal martwego bossa dla łatwego miejsca w TOP 3).
-const MAMMON_HP_BLOKADY_DOLACZANIA = 200;
+const MAMMON_CZAS_DOLACZANIA_MS = 30000;
 const MAMMON_CZAS_WALKI_MS = 60000;
 const MAMMON_SPAWN_MIN_H = 6;
 const MAMMON_SPAWN_MAX_H = 12;
@@ -1811,7 +1774,7 @@ function budujRegulaminMammona(dolaczanieOtwarte) {
             "🎲 **Losowa umiejętność:** po dołączeniu dostajesz jedną z 5 losowych, jednorazowych umiejętności\n\n" +
             "Kliknij **⚔️ Dołącz**, aby wziąć udział w walce!"
         )
-        .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 45 sekund!" : `Nadal możesz dołączyć, dopóki Mammon ma co najmniej ${MAMMON_HP_BLOKADY_DOLACZANIA} HP` });
+        .setFooter({ text: dolaczanieOtwarte ? "Dołączanie otwarte - masz 30 sekund!" : "Dołączanie zamknięte" });
 }
 
 function panelGraczaMammon(stan, gracz) {
@@ -1867,15 +1830,9 @@ async function aktualizujPublicznaMammona(stan, wymuszona) {
         zawartosc.files = [new AttachmentBuilder(MAMMON_SCIEZKA_OBRAZKA, { name: "mammon.jpg" })];
         stan.obrazekWyslany = true;
     }
-    zawartosc.components = stan.zakonczone
-        ? []
-        : [new ActionRowBuilder().addComponents(
-              new ButtonBuilder()
-                  .setCustomId("mammon_dolacz")
-                  .setLabel("⚔️ Dołącz")
-                  .setStyle(ButtonStyle.Danger)
-                  .setDisabled(!stan.dolaczanieOtwarte && stan.hp < MAMMON_HP_BLOKADY_DOLACZANIA)
-          )];
+    zawartosc.components = stan.dolaczanieOtwarte
+        ? [new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId("mammon_dolacz").setLabel("⚔️ Dołącz").setStyle(ButtonStyle.Danger))]
+        : [];
 
     await stan.wiadomosc.edit(zawartosc).catch(() => {});
 }
@@ -1911,12 +1868,13 @@ async function zakonczWalkeMammon(guildId, pokonany) {
 
             if (nagroda > 0 && top3Ids.has(userId)) {
                 bonus = losowaLiczba(30, 50);
+                nagroda += bonus;
             }
 
             if (nagroda > 0) {
-                const nagrodaWynik = await przyznajNagrode(userId, guildId, nagroda + bonus, gracz.aktywnyBonus);
+                const nagrodaWynik = await przyznajNagrode(userId, guildId, nagroda, gracz.aktywnyBonus);
                 bonusPostaciTekst = nagrodaWynik.bonusTekst;
-                podsumowanie += `<@${userId}> +${nagroda} Solid Dice <:Red_roll:1512521789748547715>${bonus > 0 ? ` + ${bonus} Solid Dice <:Red_roll:1512521789748547715> (TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
+                podsumowanie += `<@${userId}> +${nagroda} <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} <:Red_roll:1512521789748547715> za TOP 3 obrażeń)` : ""}${bonusPostaciTekst ? ` + ${bonusPostaciTekst}` : ""}\n`;
             }
         }
 
@@ -1931,7 +1889,7 @@ async function zakonczWalkeMammon(guildId, pokonany) {
                     {
                         name: "Nagroda",
                         value: nagroda > 0
-                            ? `**+${nagroda} Solid Dice** <:Red_roll:1512521789748547715>${bonus > 0 ? ` + **${bonus} Solid Dice** <:Red_roll:1512521789748547715> (TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
+                            ? `**+${nagroda}** <:Red_roll:1512521789748547715>${bonus > 0 ? ` (w tym +${bonus} za TOP 3)` : ""}${bonusPostaciTekst ? `\n${bonusPostaciTekst}` : ""}`
                             : "Brak nagrody",
                         inline: false,
                     },
@@ -2235,12 +2193,8 @@ client.on("interactionCreate", async (interaction) => {
 
        if (interaction.customId === "mammon_dolacz") {
         const stan = aktywneMammony.get(interaction.guild.id);
-        if (!stan || stan.zakonczone) {
-            await interaction.reply({ content: "❗ Ta walka z Mammonem już się zakończyła.", ephemeral: true });
-            return;
-        }
-        if (!stan.dolaczanieOtwarte && stan.hp < MAMMON_HP_BLOKADY_DOLACZANIA) {
-            await interaction.reply({ content: `❗ Mammon ma już poniżej ${MAMMON_HP_BLOKADY_DOLACZANIA} HP - dołączanie do walki jest zamknięte.`, ephemeral: true });
+        if (!stan || !stan.dolaczanieOtwarte) {
+            await interaction.reply({ content: "❗ Dołączanie do tej walki jest już zamknięte.", ephemeral: true });
             return;
         }
 
@@ -2984,7 +2938,6 @@ client.on("interactionCreate", async (interaction) => {
             "Nie zapomniałeś parasola jak dziś wracałeś/aś z pracy", 
             "Wieszak nie wystrzelił Nahidy z procy",
             "Wieszak nie powiedział skill issues",
-            "Sapphire nie zmutował Nefreza",
 
         ];
         
@@ -3550,6 +3503,7 @@ if (interaction.commandName === "plecak") {
 
     const solidDiceAktualne = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice) : 0;
     const solidDiceTotal = ekonomia.rows.length > 0 ? Number(ekonomia.rows[0].solid_dice_total) : 0;
+    const sumaRolli = solidDiceTotal / 10;
 
     const rankingWynik = await db.execute({
         sql: "SELECT COUNT(*) AS wyzsi FROM ekonomia WHERE guild_id = ? AND solid_dice_total > ?",
@@ -3573,7 +3527,7 @@ if (interaction.commandName === "plecak") {
         const p = postacie.rows[indeks - 1];
         const embed = new EmbedBuilder()
             .setColor(0x2B2D31)
-            .setDescription(`# ${POSTAC_ZYWIOL[p.postac] ? `${POSTAC_ZYWIOL[p.postac]} ` : ""}${p.postac}\n\n## Kopie: ${p.ilosc}/6`)
+            .setDescription(`**Postać: ${p.postac}**\n\n**Zgromadzone kopie**\n**Kopie:** ${p.ilosc}/6\n\n**Statystyki Konta**\n**Rolle:** ${Math.floor(sumaRolli)} | **Top:** #${pozycjaTop}`)
             .setFooter({ text: `Strona ${indeks + 1} / ${maxStron}` });
 
         const pliki = [];
@@ -4173,7 +4127,6 @@ if (interaction.commandName === "pinkpawsheist") {
             "Uciekłeś/aś z łupem",
             "Nie zostałeś/aś schwytany/a",
             "Akcja zakończona sukcesem!",
-            "Sapphire nie zmutował Nefreza",
         ];
         const wiadomosc = wiadomosci1[Math.floor(Math.random() * wiadomosci1.length)];
 
