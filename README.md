@@ -117,7 +117,7 @@ Grając (i wygrywając) daną postacią w `/papier-kamień-nożyce`, buduje się
 | Fadia | `/work` |
 | Chiz | `/pinkpawsheist` |
 
-Poziomy kumulują się - na poziomie N aktywne są bonusy wszystkich poziomów 1..N naraz, nie tylko najwyższego osiągniętego. Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 jest wspólny dla wszystkich postaci - startowy punkt w `/papier-kamień-nożyce`. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`, a wszystkie aktualnie aktywne bonusy (więź + skin) naraz w `/bonusy`.
+Poziomy kumulują się - na poziomie N aktywne są bonusy wszystkich poziomów 1..N naraz, nie tylko najwyższego osiągniętego. Poziomy 1-9 dają rosnące bonusy specyficzne dla przypisanej komendy (dodatkowe Solid Dice, krótszy cooldown, szansa na bonusową nagrodę), a poziom 10 to zawsze 15% szans na podwojenie (2x) Solid Dice zdobytych w tej komendzie. Pełną listę poziomów i własny postęp sprawdzisz w `/bond`, a wszystkie aktualnie aktywne bonusy (więź + skin) naraz w `/bonusy`.
 
 Dodatkowo: każda nagroda Solid Dice z komendy ekonomii (`/daily`, `/work`, `/pinkpawsheist`, `/wyścig`, `/łowienie`, `/automat`, `/mahjong`) ma **20% szans**, że cała trafi też - obok zwykłego zasilenia konta - do więzi losowej postaci, którą aktualnie posiadasz w `/plecak`.
 

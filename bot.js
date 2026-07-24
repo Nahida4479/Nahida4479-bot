@@ -795,12 +795,14 @@ function efektywnyCooldownMs(komenda, bazowyCooldownMs, aktywny, aktywnaWiez) {
 // Więź z postacią rośnie wyłącznie dzięki wygranym w /papier-kamień-nożyce
 // rozegranym tą postacią (sd_zdobyte = suma wygranych Solid Dice). Poziom więzi
 // (1-10) odblokowuje bonus w JEDNEJ, przypisanej na stałe komendzie ekonomii -
-// zawsze liczy się tylko bonus aktualnego (najwyższego osiągniętego) poziomu,
-// bez sumowania niższych. Poziom 10 jest dla każdej postaci taki sam: dodatkowy
-// startowy punkt w samym /papier-kamień-nożyce.
+// poziomy kumulują się, na poziomie N aktywne są bonusy WSZYSTKICH poziomów
+// 1..N naraz. Poziom 10 to zawsze 15% szans na podwojenie (2x) Solid Dice
+// zdobytych w komendzie przypisanej do danej postaci.
 const WIEZ_PROGI = [20, 50, 75, 100, 150, 225, 300, 500, 750, 1000];
 
-const WIEZ_START_RPS = { typ: "rps_start", opis: "Zaczynasz rundę `/papier-kamień-nożyce` z 1 punktem." };
+function wiezPoziom10(komenda) {
+    return { typ: "szansa_podwojenie", szansa: 0.15, opis: `15% szans na podwojenie (2x) Solid Dice zdobytych w \`/${komenda}\`.` };
+}
 
 const WIEZ_POSTACI = {
     Nanally: {
@@ -815,7 +817,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 10, opis: "+10 Solid Dice za wygraną w `/wyścig`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 20, opis: "10% szans na dodatkowe +20 Solid Dice za wygraną w `/wyścig`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 50, opis: "5% szans na dodatkowe +50 Solid Dice za wygraną w `/wyścig`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("wyścig"),
         ],
     },
     Hotori: {
@@ -830,7 +832,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 6, opis: "+6 Solid Dice za dokończoną partię `/mahjong`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za dokończoną partię `/mahjong`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 35, opis: "5% szans na dodatkowe +35 Solid Dice za dokończoną partię `/mahjong`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("mahjong"),
         ],
     },
     Lacrimosa: {
@@ -845,7 +847,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wygraną w `/automat`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za wygraną w `/automat`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 30, opis: "5% szans na dodatkowe +30 Solid Dice za wygraną w `/automat`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("automat"),
         ],
     },
     Chaos: {
@@ -860,7 +862,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wygraną w `/łowienie`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za wygraną w `/łowienie`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 30, opis: "5% szans na dodatkowe +30 Solid Dice za wygraną w `/łowienie`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("łowienie"),
         ],
     },
     Sakiri: {
@@ -875,7 +877,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 8, opis: "+8 Solid Dice za odebrane `/daily`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 20, opis: "10% szans na dodatkowe +20 Solid Dice za `/daily`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 40, opis: "5% szans na dodatkowe +40 Solid Dice za `/daily`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("daily"),
         ],
     },
     Fadia: {
@@ -890,7 +892,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 5, opis: "+5 Solid Dice za wykonaną `/work`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 15, opis: "10% szans na dodatkowe +15 Solid Dice za `/work`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 30, opis: "5% szans na dodatkowe +30 Solid Dice za `/work`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("work"),
         ],
     },
     Chiz: {
@@ -905,7 +907,7 @@ const WIEZ_POSTACI = {
             { typ: "extra_sd", wartosc: 15, opis: "+15 Solid Dice za sukces w `/pinkpawsheist`." },
             { typ: "szansa_extra", szansa: 0.10, wartosc: 25, opis: "10% szans na dodatkowe +25 Solid Dice za sukces w `/pinkpawsheist`." },
             { typ: "szansa_extra", szansa: 0.05, wartosc: 60, opis: "5% szans na dodatkowe +60 Solid Dice za sukces w `/pinkpawsheist`." },
-            WIEZ_START_RPS,
+            wiezPoziom10("pinkpawsheist"),
         ],
     },
 };
@@ -952,18 +954,22 @@ async function pobierzWiezBonus(userId, guildId, komenda) {
     return { postac, poziom, sd, aktywnePoziomy: WIEZ_POSTACI[postac].poziomy.slice(0, poziom) };
 }
 
-// Dolicza bonus więzi (extra_sd / szansa_extra) do już przyznanej nagrody -
-// niezależnie od ewentualnego bonusu skina, więc oba mogą zadziałać jednocześnie.
-async function dodajBonusWiezi(userId, guildId, komenda) {
+// Dolicza bonus więzi (extra_sd / szansa_extra / szansa_podwojenie) do już
+// przyznanej nagrody - niezależnie od ewentualnego bonusu skina, więc oba mogą
+// zadziałać jednocześnie. `ilosc` to bazowa nagroda już przyznana za tę
+// interakcję - potrzebna do policzenia podwojenia z poziomu 10.
+async function dodajBonusWiezi(userId, guildId, komenda, ilosc = 0) {
     const wiez = await pobierzWiezBonus(userId, guildId, komenda);
     if (!wiez) return { bonusTekst: null };
 
     // Wszystkie odblokowane poziomy sumują się naraz - flat extra_sd zawsze,
-    // a każdy szansa_extra losowany niezależnie (może "trafić" więcej niż jeden).
+    // a każdy szansa_extra/szansa_podwojenie losowany niezależnie (może "trafić"
+    // więcej niż jeden).
     let suma = 0;
     for (const cfg of wiez.aktywnePoziomy) {
         if (cfg.typ === "extra_sd") suma += cfg.wartosc;
         else if (cfg.typ === "szansa_extra" && Math.random() < cfg.szansa) suma += cfg.wartosc;
+        else if (cfg.typ === "szansa_podwojenie" && ilosc > 0 && Math.random() < cfg.szansa) suma += ilosc;
     }
     if (suma <= 0) return { bonusTekst: null };
 
@@ -1114,16 +1120,6 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
     let wygraneP1 = 0;
     let wygraneP2 = 0;
 
-    const wiezP1 = WIEZ_POSTACI[postacP1] ? await pobierzWiezBonus(p1.id, guildId, WIEZ_POSTACI[postacP1].komenda) : null;
-    if (wiezP1?.poziom === 10) wygraneP1 = 1;
-    const wiezP2 = WIEZ_POSTACI[postacP2] ? await pobierzWiezBonus(p2.id, guildId, WIEZ_POSTACI[postacP2].komenda) : null;
-    if (wiezP2?.poziom === 10) wygraneP2 = 1;
-
-    const startBonusTekst = [
-        wygraneP1 > 0 ? `${p1.username} zaczyna z 1 punktem (więź 10. poziomu z **${postacP1}**)!` : null,
-        wygraneP2 > 0 ? `${p2.username} zaczyna z 1 punktem (więź 10. poziomu z **${postacP2}**)!` : null,
-    ].filter(Boolean).join("\n");
-
     // Pole scoreboardu jednego gracza - postać (z emotką) i to, co aktualnie wybrał
     // (albo "jeszcze nie wybrał", w trakcie oczekiwania na ruchy). Osobne, pełne
     // pola (nie inline) - żeby na telefonie też było wyraźnie widać, kto co gra.
@@ -1138,7 +1134,7 @@ async function rozegrajRundyRPS(wiadomosc, p1, p2, postacP1, postacP2, stawka, g
         const embedRundy = new EmbedBuilder()
             .setColor(0xE91E63)
             .setTitle(`🎮 Runda ${runda} - Papier-Kamień-Nożyce`)
-            .setDescription(`Macie 10 sekund na wybór!${runda === 1 && startBonusTekst ? `\n\n${startBonusTekst}` : ""}`)
+            .setDescription("Macie 10 sekund na wybór!")
             .addFields(poleGracza(p1.username, postacP1, null), poleWyniku(), poleGracza(p2.username, postacP2, null));
 
         const przyciski = new ActionRowBuilder().addComponents(
@@ -2563,7 +2559,7 @@ client.on("interactionCreate", async (interaction) => {
         }
         const ilosc = losowaLiczba(20, 50);
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
-        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "daily");
+        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "daily", ilosc);
         const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, ilosc);
 
         const wiadomosci = [
@@ -2910,7 +2906,7 @@ client.on("interactionCreate", async (interaction) => {
 
         const ilosc = Math.floor(Math.random() * 5) + 5;
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
-        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "work");
+        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "work", ilosc);
         const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, ilosc);
 
         let bonusNadgodzin = 0;
@@ -3083,7 +3079,7 @@ client.on("interactionCreate", async (interaction) => {
         } else {
             const nagrodaWyscigu = losowaLiczba(5, 15);
             const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaWyscigu, aktywnyBonus);
-            const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "wyścig");
+            const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "wyścig", nagrodaWyscigu);
             const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, nagrodaWyscigu);
 
             let bonusChizTekst = "";
@@ -3177,7 +3173,7 @@ client.on("interactionCreate", async (interaction) => {
             if (wygrana) {
                 const nagrodaLowienia = losowaLiczba(1, 10);
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaLowienia, aktywnyBonus);
-                const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "łowienie");
+                const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "łowienie", nagrodaLowienia);
                 const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, nagrodaLowienia);
 
                 let bonusSakiriTekst = "";
@@ -3309,7 +3305,7 @@ client.on("interactionCreate", async (interaction) => {
                 zlapane = true;
                 const nagrodaAutomatu = losowaLiczba(1, 10);
                 const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, nagrodaAutomatu, aktywnyBonus);
-                const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "automat");
+                const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "automat", nagrodaAutomatu);
                 const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, nagrodaAutomatu);
                 await interaction.editReply({
                     content: rysujAutomat() + `\n\n${EMOJI_NAGRODA} **Złapałeś zabawkę!** Zdobywasz **+${nagrodaAutomatu}** <:Red_roll:1512521789748547715>!${nagroda.bonusTekst ? `\n${nagroda.bonusTekst}` : ""}${wiezBonus.bonusTekst ? `\n${wiezBonus.bonusTekst}` : ""}${losowyBonus.bonusTekst ? `\n${losowyBonus.bonusTekst}` : ""}`,
@@ -3875,7 +3871,7 @@ if (interaction.commandName === "bond") {
         .setTitle("🔗 System więzi z postaciami")
         .setDescription(
             "Więź z postacią rośnie, grając nią w `/papier-kamień-nożyce` i **wygrywając** - liczy się suma Solid Dice zdobytych tą postacią w tej grze. " +
-            "Im wyższy poziom, tym mocniejszy bonus w komendzie ekonomii przypisanej do tej postaci. Poziom 10 dodatkowo daje 1 startowy punkt w samym `/papier-kamień-nożyce`. " +
+            "Im wyższy poziom, tym mocniejszy bonus w komendzie ekonomii przypisanej do tej postaci. Poziom 10 to zawsze 15% szans na podwojenie (2x) Solid Dice zdobytych w tej komendzie. " +
             "Dodatkowo: każda nagroda z komend ekonomii (np. `/work`, `/mahjong`, `/wyścig`) ma 20% szans trafić też do więzi losowej posiadanej przez Ciebie postaci."
         );
 
@@ -4111,7 +4107,7 @@ if (interaction.commandName === "pinkpawsheist") {
     if (wygrana) {
         const ilosc = losowaLiczba(30, 150);
         const nagroda = await przyznajNagrode(interaction.user.id, interaction.guild.id, ilosc, aktywnyBonus);
-        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "pinkpawsheist");
+        const wiezBonus = await dodajBonusWiezi(interaction.user.id, interaction.guild.id, "pinkpawsheist", ilosc);
         const losowyBonus = await mozliwyLosowyBonusWiezi(interaction.user.id, interaction.guild.id, ilosc);
 
         let bonusNanally3Tekst = "";

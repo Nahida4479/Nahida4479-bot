@@ -114,7 +114,7 @@ Playing (and winning) with a given character in `/papier-kamień-nożyce` builds
 | Fadia | `/work` |
 | Chiz | `/pinkpawsheist` |
 
-Levels stack - at level N, the bonuses of every level 1..N are active at once, not just the highest one reached. Levels 1-9 grant growing bonuses specific to the assigned command (extra Solid Dice, shorter cooldown, a chance at a bonus reward), while level 10 is shared by every character - a starting point in `/papier-kamień-nożyce` itself. Check the full level list and your own progress in `/bond`, and every currently active bonus (bond + skin) at once in `/bonusy`.
+Levels stack - at level N, the bonuses of every level 1..N are active at once, not just the highest one reached. Levels 1-9 grant growing bonuses specific to the assigned command (extra Solid Dice, shorter cooldown, a chance at a bonus reward), while level 10 is always a 15% chance to double (2x) the Solid Dice earned from that command. Check the full level list and your own progress in `/bond`, and every currently active bonus (bond + skin) at once in `/bonusy`.
 
 On top of that: every Solid Dice reward from an economy command (`/daily`, `/work`, `/pinkpawsheist`, `/wyścig`, `/łowienie`, `/automat`, `/mahjong`) has a **20% chance** to also go - on top of the normal wallet reward - to the bond of a random character you currently own in `/plecak`.
 

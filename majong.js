@@ -648,7 +648,7 @@ async function zakonczGre(gra, wynik, deps) {
             }
 
             // Bonus więzi (np. Hotori) - niezależny od bonusu skina, może zadziałać jednocześnie.
-            const { bonusTekst: bonusWieziTekst } = await deps.dodajBonusWiezi(gracz.id, gra.guildId, "mahjong");
+            const { bonusTekst: bonusWieziTekst } = await deps.dodajBonusWiezi(gracz.id, gra.guildId, "mahjong", nagroda);
             if (bonusWieziTekst) bonusPostaciTekst += ` + ${bonusWieziTekst}`;
 
             // 20% szans, że cała nagroda trafi też do więzi losowej posiadanej postaci.
