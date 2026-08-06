@@ -6,7 +6,7 @@ import { existsSync } from "fs";
 import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, ModalBuilder, TextInputBuilder, TextInputStyle, StringSelectMenuBuilder } from "discord.js"
 import { db, initDB, DbTimeoutError } from "./create-database-table.js";
 import { rozpocznijMajong } from "./majong.js";
-import "./status-api.js";
+import { startStatusApi } from "./status-api.js";
 
 
 if (process.env.dns_order === "ipv4first" || process.env.dns_order === "ipv6first") {
@@ -22,6 +22,8 @@ const client = new Client({
 
     ],
 });
+
+startStatusApi(client);
 
 client.once("ready", async () => {
     await initDB();
